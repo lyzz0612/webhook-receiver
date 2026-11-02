@@ -1,0 +1,3 @@
+ADMIN_PASSWORD=change-me
+# Optional. When unset, the session signing key is derived from ADMIN_PASSWORD.
+SESSION_SECRET=

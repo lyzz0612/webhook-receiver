@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webhook-receiver",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+  // Admin UI (public/admin/index.html). Requests that don't match a file fall through to the Worker.
+  "assets": { "directory": "./public" },
+  // No id: Wrangler provisions the namespace on first deploy and reuses it afterwards.
+  "kv_namespaces": [{ "binding": "SUBS" }],
+  "ratelimits": [
+    { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
+  ]
+  // Secrets (set with `wrangler secret put`): ADMIN_PASSWORD (required), SESSION_SECRET (optional)
+}
