@@ -43,10 +43,22 @@ jobs:
           cache: npm
       - run: npm ci
         if: env.HAS_CF_TOKEN == 'true'
+      # Uploads the Worker secrets that are set in GitHub; ones left unset keep their current value.
+      - name: Prepare Worker secrets
+        if: env.HAS_CF_TOKEN == 'true'
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+        run: |
+          node -e '
+            const out = {};
+            for (const k of ["ADMIN_PASSWORD", "SESSION_SECRET"]) if (process.env[k]) out[k] = process.env[k];
+            require("fs").writeFileSync(process.env.RUNNER_TEMP + "/worker-secrets.json", JSON.stringify(out));
+          '
       - name: Deploy to Cloudflare Workers
         if: env.HAS_CF_TOKEN == 'true'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          command: deploy --secrets-file ${{ runner.temp }}/worker-secrets.json

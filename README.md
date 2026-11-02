@@ -53,6 +53,10 @@ npx wrangler secret put ADMIN_PASSWORD
 
 - `CLOUDFLARE_API_TOKEN`：需要 Workers Scripts 编辑、Workers KV Storage 编辑权限
 - `CLOUDFLARE_ACCOUNT_ID`
+- `ADMIN_PASSWORD`：后台密码，部署时作为 Worker secret 上传
+- `SESSION_SECRET`（可选）
+
+GitHub 里没有设置的 Worker secret 会保留 Cloudflare 上已有的值。没有设置 `CLOUDFLARE_API_TOKEN` 时，工作流只跑测试、跳过部署。
 
 ## 开发
 
