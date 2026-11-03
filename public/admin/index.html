@@ -290,7 +290,8 @@ function editTarget(sub, t) {
       h("h3", {}, t ? "编辑目标" : "添加目标"),
       h("div", { class: "grid2" },
         h("label", {}, h("span", {}, "类型"), typeSelect),
-        h("label", {}, h("span", {}, "备注名（可选）"), h("input", { value: d.name, placeholder: "留空则列表显示配置摘要", oninput: (e) => (d.name = e.target.value) })),
+        // ntfy is identified by its topic, so it has no name field.
+        m.named ? h("label", {}, h("span", {}, "名称"), h("input", { value: d.name, placeholder: "例如：家庭群", oninput: (e) => (d.name = e.target.value) })) : null,
         ...inputs),
       h("label", { class: "inline" }, h("input", { type: "checkbox", checked: d.enabled, onchange: (e) => (d.enabled = e.target.checked) }), "启用"),
       h("div", { class: "actions" },

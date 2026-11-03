@@ -17,6 +17,7 @@ export const feishuOut: OutboundAdapter<FeishuConfig> = {
   label: "飞书机器人",
   schema,
   secretFields: ["webhook_url", "sign_secret"],
+  named: true,
   summary: (c) => tail(c.webhook_url.replace(/\/+$/, "")),
   async build(msg, c) {
     let payload: Record<string, unknown>;

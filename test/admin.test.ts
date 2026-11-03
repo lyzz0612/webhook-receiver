@@ -97,9 +97,9 @@ describe("targets", () => {
     expect(added.status).toBe(201);
     const id = (await body(added)).targets[0].id;
 
-    const edited = await body(admin(`/subscriptions/nas/targets/${id}`, cookie, put({ ...ntfyTarget, name: "renamed" })));
+    const edited = await body(admin(`/subscriptions/nas/targets/${id}`, cookie, put({ ...ntfyTarget, config: { ...ntfyTarget.config, topic: "tp2" } })));
     expect(edited.targets).toHaveLength(1);
-    expect(edited.targets[0]).toMatchObject({ id, name: "renamed" });
+    expect(edited.targets[0]).toMatchObject({ id, config: { topic: "tp2" } });
 
     const deleted = await body(admin(`/subscriptions/nas/targets/${id}`, cookie, { method: "DELETE" }));
     expect(deleted.targets).toEqual([]);
@@ -131,19 +131,35 @@ describe("targets", () => {
     expect((await admin("/subscriptions/nas/targets", cookie, post(ntfyTarget))).status).toBe(400);
   });
 
-  it("name is optional; the list shows a non-secret summary per type", async () => {
+  it("ntfy has no name; other types require one", async () => {
+    await seed("nas", []);
+    const cookie = await login();
+    const sub = await body(admin("/subscriptions/nas/targets", cookie, post({ ...ntfyTarget, name: "ignored" })));
+    expect(sub.targets[0].name).toBe("");
+    for (const t of [
+      { type: "gotify", config: { server: "https://g.example.com", app_token: "app" } },
+      { type: "wecom", config: { key: "k" } },
+      { type: "feishu", config: { webhook_url: "https://open.feishu.cn/x" } },
+      { type: "webhook", config: { url: "https://h.example.com" } },
+    ]) {
+      expect((await admin("/subscriptions/nas/targets", cookie, post(t))).status).toBe(400);
+      expect((await admin("/subscriptions/nas/targets", cookie, post({ ...t, name: "  " }))).status).toBe(400);
+    }
+  });
+
+  it("the list shows a non-secret summary per type", async () => {
     await seed("nas", []);
     const cookie = await login();
     const add = (t: unknown) => body(admin("/subscriptions/nas/targets", cookie, post(t)));
     // Blank fields as the form sends them: server falls back to https://ntfy.sh.
     await add({ type: "ntfy", config: { server: "", topic: "alerts", auth_kind: "none", auth_token: "" } });
     await add({ type: "ntfy", config: { server: "https://ntfy.example.com", topic: "ops" } });
-    await add({ type: "gotify", config: { server: "https://g.example.com", app_token: "app" } });
-    await add({ type: "wecom", config: { key: "secret-key-wxyz" } });
-    await add({ type: "feishu", config: { webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/abcd1234" } });
-    const sub = await add({ type: "webhook", config: { url: "https://hook.example.com/path?key=s3cret" } });
+    await add({ type: "gotify", name: "g", config: { server: "https://g.example.com", app_token: "app" } });
+    await add({ type: "wecom", name: "w", config: { key: "secret-key-wxyz" } });
+    await add({ type: "feishu", name: "f", config: { webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/abcd1234" } });
+    const sub = await add({ type: "webhook", name: "h", config: { url: "https://hook.example.com/path?key=s3cret" } });
 
-    expect(sub.targets.map((t) => t.name)).toEqual(["", "", "", "", "", ""]);
+    expect(sub.targets.map((t) => t.name)).toEqual(["", "", "g", "w", "f", "h"]);
     expect(sub.targets.map((t) => (t as unknown as { summary: string }).summary)).toEqual([
       "alerts",
       "ops @ ntfy.example.com",
@@ -154,7 +170,6 @@ describe("targets", () => {
     ]);
     // Summaries never leak secrets.
     expect(JSON.stringify(sub)).not.toMatch(/secret-key|abcd1234|s3cret/);
-    // Distinct ids even with identical (empty) names.
     expect(new Set(sub.targets.map((t) => t.id)).size).toBe(6);
   });
 

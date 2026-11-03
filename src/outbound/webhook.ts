@@ -52,6 +52,7 @@ export const webhookOut: OutboundAdapter<WebhookConfig> = {
   label: "通用 Webhook",
   schema,
   secretFields: ["url", "headers"],
+  named: true,
   // Only the host: the path or query may carry a key.
   summary: (c) => [c.method, hostOf(c.url)].filter(Boolean).join(" "),
   build(msg, c) {

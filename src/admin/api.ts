@@ -108,6 +108,7 @@ adminApi.get("/meta", (c) =>
       label: a.label,
       fields: OUTBOUND_FIELDS[a.type],
       secretFields: a.secretFields,
+      named: a.named,
     })),
   }),
 );

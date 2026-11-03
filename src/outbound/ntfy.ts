@@ -21,6 +21,7 @@ export const ntfyOut: OutboundAdapter<NtfyConfig> = {
   label: "ntfy",
   schema,
   secretFields: ["auth_token", "auth_password"],
+  named: false,
   summary(c) {
     const host = hostOf(c.server);
     return host && host !== "ntfy.sh" ? `${c.topic} @ ${host}` : c.topic;

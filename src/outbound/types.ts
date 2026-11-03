@@ -17,6 +17,8 @@ export interface OutboundAdapter<C> {
   check?(res: Response, text: string): void;
   /** Short non-secret description shown in the admin list (e.g. the ntfy topic). */
   summary(config: C): string;
+  /** Whether targets of this type need a name. False when the summary already identifies them (ntfy topic). */
+  named: boolean;
 }
 
 export const SEND_TIMEOUT_MS = 10_000;

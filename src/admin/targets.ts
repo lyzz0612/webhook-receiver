@@ -20,7 +20,9 @@ export function maskTarget(t: Target): MaskedTarget {
     if (config[f] !== undefined && config[f] !== "") secrets_set.push(f);
     config[f] = "";
   }
-  return { ...t, config, secrets_set, summary };
+  // Older data may still carry a name on types that no longer have one (ntfy).
+  const name = adapter && !adapter.named ? "" : t.name;
+  return { ...t, name, config, secrets_set, summary };
 }
 
 /**
@@ -45,8 +47,10 @@ export function mergeTarget(input: unknown, existing: Target | undefined): Targe
     }
   }
   const parsed = adapter.schema.safeParse(submitted);
-  // Optional label; targets are identified by id, and the list falls back to the config summary.
-  const name = (str(input.name) ?? "").trim();
+  // Targets are identified by id. Types whose summary already tells them apart (ntfy topic) have no name;
+  // the others need one because their summary is only a host or the tail of a key.
+  const name = adapter.named ? (str(input.name) ?? "").trim() : "";
+  if (adapter.named && !name) throw new HttpError(400, `${adapter.label}需要填写名称`);
   if (!parsed.success) {
     const detail = parsed.error.issues.map((i) => `${i.path.join(".") || "config"}: ${i.message}`).join("; ");
     throw new HttpError(400, `${adapter.label}配置无效：${detail}`);

@@ -16,6 +16,7 @@ export const gotifyOut: OutboundAdapter<GotifyConfig> = {
   label: "Gotify",
   schema,
   secretFields: ["app_token"],
+  named: true,
   summary: (c) => hostOf(c.server),
   build(msg, c) {
     const extras: Record<string, unknown> = {};

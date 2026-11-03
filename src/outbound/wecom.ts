@@ -17,6 +17,7 @@ export const wecomOut: OutboundAdapter<WecomConfig> = {
   label: "企业微信机器人",
   schema,
   secretFields: ["key"],
+  named: true,
   summary: (c) => tail(c.key.replace(/^.*[?&]key=/, "")),
   build(msg, c) {
     const url = /^https?:\/\//.test(c.key)
