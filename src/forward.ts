@@ -26,13 +26,30 @@ export async function buildRequest(target: Target, msg: Message): Promise<Outbou
   return adapter.build(msg, parsed.data);
 }
 
+/** Short reason from an error response body, e.g. ntfy's {"error":"invalid topic"}. */
+export function errorDetail(text: string): string {
+  let reason = text.trim();
+  try {
+    const j: unknown = JSON.parse(reason);
+    if (typeof j === "object" && j !== null) {
+      const o = j as Record<string, unknown>;
+      const r = o.error ?? o.errmsg ?? o.msg ?? o.message;
+      if (typeof r === "string") reason = r;
+    }
+  } catch {
+    /* plain text body */
+  }
+  reason = reason.replace(/\s+/g, " ").slice(0, 120);
+  return reason ? `: ${reason}` : "";
+}
+
 export async function sendToTarget(target: Target, msg: Message): Promise<TargetResult> {
   const base = { id: target.id, name: target.name, type: target.type };
   try {
     const req = await buildRequest(target, msg);
     const res = await fetch(req.url, { ...req.init, signal: AbortSignal.timeout(SEND_TIMEOUT_MS) });
     const text = await res.text();
-    if (!res.ok) return { ...base, ok: false, status: res.status, error: `HTTP ${res.status}` };
+    if (!res.ok) return { ...base, ok: false, status: res.status, error: `HTTP ${res.status}${errorDetail(text)}` };
     OUTBOUND[target.type].check?.(res, text);
     return { ...base, ok: true, status: res.status };
   } catch (e) {

@@ -18,6 +18,37 @@ describe("outbound adapters", () => {
     expect(JSON.parse(sent[0].body)).toEqual({ topic: "tp", message: "正文", title: "标题", priority: 5, tags: ["a"], click: "https://x.test" });
   });
 
+  it.each([
+    ["standard", { server: "https://ntfy.sh", topic: "skyup" }],
+    ["blank server", { server: "", topic: "skyup" }],
+    ["server without scheme", { server: "ntfy.sh", topic: "skyup" }],
+    ["topic as full URL", { server: "", topic: "https://ntfy.sh/skyup" }],
+    ["topic as host/path", { topic: "ntfy.sh/skyup" }],
+    ["server includes topic", { server: "https://ntfy.sh/skyup", topic: "skyup" }],
+    ["server is the topic URL, topic blank", { server: "https://ntfy.sh/skyup", topic: "" }],
+  ])("ntfy normalizes %s to ntfy.sh + skyup", async (_name, config) => {
+    const sent = mockFetch();
+    const r = await forward([target("ntfy", config)], { body: "b" });
+    expect(r.ok).toBe(true);
+    expect(sent[0].url).toBe("https://ntfy.sh/");
+    expect(JSON.parse(sent[0].body).topic).toBe("skyup");
+  });
+
+  it("ntfy keeps a self-hosted base path and rejects invalid topics", async () => {
+    const sent = mockFetch();
+    await forward([target("ntfy", { topic: "https://push.example.com/ntfy/alerts" })], { body: "b" });
+    expect(sent[0].url).toBe("https://push.example.com/ntfy/");
+    expect(JSON.parse(sent[0].body).topic).toBe("alerts");
+    const bad = await forward([target("ntfy", { topic: "has space" })], { body: "b" });
+    expect(bad.results[0].error).toContain("topic 只能包含");
+  });
+
+  it("reports the reason from the target's error body", async () => {
+    mockFetch(() => new Response(JSON.stringify({ code: 40010, http: 400, error: "invalid request: topic invalid" }), { status: 400 }));
+    const r = await forward([target("ntfy", { topic: "skyup" })], { body: "b" });
+    expect(r.results[0].error).toBe("HTTP 400: invalid request: topic invalid");
+  });
+
   it("gotify posts to /message with the app token", async () => {
     const sent = mockFetch();
     await forward([target("gotify", { server: "https://g.test", app_token: "app" })], { body: "b", markdown: true });
@@ -63,7 +94,7 @@ describe("fan-out", () => {
     await seed("nas", [webhookTarget("t1"), webhookTarget("t2"), webhookTarget("t3", { enabled: false })]);
     const res = await call(`/default/nas?token=${TOKEN}&body=x`);
     expect(res.status).toBe(200);
-    expect(res.headers.get("x-forward-result")).toBe("t1=ok; t2=error:HTTP 500");
+    expect(res.headers.get("x-forward-result")).toBe("t1=ok; t2=error:HTTP 500: boom");
   });
 
   it("returns 502 when every target fails", async () => {

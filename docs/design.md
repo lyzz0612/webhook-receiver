@@ -238,7 +238,7 @@ interface OutboundAdapter<C> {
 
 | 类型 | 配置 | 要点 |
 |---|---|---|
-| ntfy | `server`、`topic`、`auth`（`none` / `bearer` + token / `basic` + 用户名密码） | 用 JSON 发布到 `server` 根路径，避免 `X-Title` 头里的非 ASCII 编码问题；level→priority：info→3，warn→4，critical→5 |
+| ntfy | `server`、`topic`、`auth`（`none` / `bearer` + token / `basic` + 用户名密码） | 用 JSON 发布到 `server` 根路径，避免 `X-Title` 头里的非 ASCII 编码问题；level→priority：info→3，warn→4，critical→5。保存和发送前会整理地址：`ntfy.sh` 补成 `https://ntfy.sh`，topic 填成 `https://ntfy.sh/skyup` 或 `ntfy.sh/skyup`、服务器填成 `https://ntfy.sh/skyup` 时，都拆成服务器 + topic |
 | gotify | `server`、`app_token` | `POST /message`；level→priority：info→5，warn→7，critical→10；`markdown=true` 时设置 `extras["client::display"].contentType` |
 | webhook | `url`、`method`（GET/POST/PUT）、`headers`、`body_template`、`content_type` | 模板只支持 `{{title}}`、`{{body}}`、`{{url}}`、`{{level}}`、`{{tags}}`、`{{group}}` 替换；JSON 类型时替换值做 JSON 字符串转义 |
 | feishu | `webhook_url`、`sign_secret`（可选） | 有签名时附带 `timestamp` 和 `sign`（timestamp + "\n" + secret 做 HMAC-SHA256 后 base64）；检查响应 `code == 0` |

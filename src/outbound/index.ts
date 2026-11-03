@@ -24,8 +24,8 @@ export interface FieldDef {
 /** Form definitions for the admin UI, per target type. */
 export const OUTBOUND_FIELDS: Record<string, FieldDef[]> = {
   ntfy: [
-    { key: "server", label: "服务器", kind: "text", placeholder: "https://ntfy.sh" },
-    { key: "topic", label: "Topic", kind: "text" },
+    { key: "server", label: "服务器", kind: "text", placeholder: "https://ntfy.sh", help: "留空使用 ntfy.sh" },
+    { key: "topic", label: "Topic", kind: "text", placeholder: "skyup", help: "填 topic 名；粘贴 https://ntfy.sh/skyup 这样的完整地址也可以" },
     { key: "auth_kind", label: "鉴权", kind: "select", options: ["none", "bearer", "basic"] },
     { key: "auth_token", label: "Access Token", kind: "password", showIf: { key: "auth_kind", values: ["bearer"] } },
     { key: "auth_username", label: "用户名", kind: "text", showIf: { key: "auth_kind", values: ["basic"] } },
