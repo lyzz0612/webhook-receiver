@@ -13,6 +13,7 @@ header{display:flex;align-items:center;gap:16px;padding:12px 24px;background:var
 header h1{font-size:16px;margin:0;flex:1}
 main{max-width:1080px;margin:24px auto;padding:0 16px}
 h3{font-size:15px;margin:0 0 12px}
+h4{font-size:13px;margin:0;color:var(--muted);font-weight:600}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
 button{font:inherit;padding:5px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
 button:hover{border-color:#b8bec7}
@@ -21,40 +22,45 @@ button.danger{color:var(--danger)}
 button.link{border:none;background:none;color:var(--accent);padding:0;font-size:12px}
 input,select,textarea{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;width:100%;background:#fff}
 input[type=checkbox]{width:auto}
+select.fit{width:auto}
 textarea{min-height:80px;font-family:ui-monospace,Consolas,monospace;font-size:13px}
 label{display:block;margin-bottom:10px}
 label>span{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
 label.inline{display:flex;gap:6px;align-items:center;margin:0}
 .help{color:var(--muted);font-size:12px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.grow{flex:1}
+.grow{flex:1;min-width:0}
 .muted{color:var(--muted)}
 .badge{display:inline-block;padding:0 8px;border-radius:10px;font-size:12px;background:#eef2ff;color:var(--accent)}
 .badge.off{background:#f3f4f6;color:var(--muted)}
-.sub-head{display:flex;gap:12px;align-items:center;cursor:pointer;flex-wrap:wrap}
-.sub-head .name{font-weight:600;min-width:100px}
-.urls{margin-top:12px;border-top:1px solid var(--line)}
-.url-row{display:grid;grid-template-columns:180px 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
+.sub-name{font-weight:600;font-size:15px}
+.section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.target-row{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
+.target-row:last-child{border-bottom:none}
 code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;word-break:break-all}
-.target{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px}
+.url{background:#f6f8fa;border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
 .grid2 .full{grid-column:1/-1}
-pre{background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;overflow:auto;font-size:12.5px;max-height:520px;white-space:pre-wrap;word-break:break-all;margin:8px 0 0}
+pre{background:#0f172a;color:#e2e8f0;padding:10px;border-radius:6px;overflow:auto;font-size:12.5px;max-height:200px;white-space:pre-wrap;word-break:break-all;margin:10px 0 0}
+dialog{border:none;border-radius:10px;padding:20px;width:min(600px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.2)}
+dialog::backdrop{background:rgba(15,23,42,.35)}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:10}
 #toast.show{opacity:1}
-nav button.active{border-color:var(--accent);color:var(--accent)}
-@media(max-width:700px){.grid2{grid-template-columns:1fr}.url-row{grid-template-columns:1fr auto}.url-row>:first-child{grid-column:1/-1}}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header><h1>Webhook Receiver</h1><nav id="nav" class="row"></nav></header>
 <main id="app"></main>
+<dialog id="dlg"></dialog>
 <div id="toast"></div>
 <script>
 "use strict";
 const $app = document.getElementById("app");
 const $nav = document.getElementById("nav");
-const state = { meta: null, subs: [], view: "subs", open: new Set(JSON.parse(localStorage.getItem("wr_open") || "[]")) };
+const $dlg = document.getElementById("dlg");
+const state = { meta: null, subs: [], format: JSON.parse(localStorage.getItem("wr_format") || "{}") };
 
 function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
@@ -100,6 +106,7 @@ async function copy(text) {
 }
 
 const mask = (t) => (t ? t.slice(0, 3) + "•••••" : "");
+const outMeta = (type) => state.meta.outbound.find((o) => o.type === type);
 
 function subUrl(type, sub) {
   const tpl = state.meta.inbound.find((x) => x.type === type).urlTemplate;
@@ -107,20 +114,25 @@ function subUrl(type, sub) {
   return tpl.replace("{base}", base).replace("{token}", encodeURIComponent(sub.token));
 }
 
-function renderNav() {
-  $nav.replaceChildren(
-    h("button", { class: state.view === "subs" ? "active" : "", onclick: () => go("subs") }, "订阅"),
-    h("button", { class: state.view === "dry" ? "active" : "", onclick: () => go("dry") }, "试运行"),
-    h("button", { onclick: () => run(async () => { await api("/logout", { method: "POST" }); renderLogin(); }) }, "退出"),
-  );
+function openDialog(...children) {
+  $dlg.replaceChildren(...children);
+  if (!$dlg.open) $dlg.showModal();
 }
+const closeDialog = () => $dlg.close();
 
-function go(view, arg) {
-  state.view = view;
-  renderNav();
-  if (view === "subs") renderSubs();
-  else if (view === "edit") renderEdit(arg);
-  else if (view === "dry") renderDryRun();
+/** Replaces one subscription in local state (by old name, so renames work) and re-renders. */
+function updateSub(oldName, sub) {
+  const i = state.subs.findIndex((s) => s.name === oldName);
+  if (sub && i >= 0) state.subs[i] = sub;
+  else if (sub) state.subs.push(sub);
+  else if (i >= 0) state.subs.splice(i, 1);
+  if (sub && oldName !== sub.name && state.format[oldName]) {
+    state.format[sub.name] = state.format[oldName];
+    delete state.format[oldName];
+    localStorage.setItem("wr_format", JSON.stringify(state.format));
+  }
+  state.subs.sort((a, b) => a.name.localeCompare(b.name));
+  renderSubs();
 }
 
 function renderLogin() {
@@ -142,15 +154,8 @@ function renderLogin() {
 async function boot() {
   state.meta = await api("/meta");
   state.subs = await api("/subscriptions");
-  go("subs");
-}
-
-function saveOpen() { localStorage.setItem("wr_open", JSON.stringify([...state.open])); }
-
-function upsertSub(sub) {
-  const i = state.subs.findIndex((s) => s.name === sub.name);
-  if (i >= 0) state.subs[i] = sub; else state.subs.push(sub);
-  state.subs.sort((a, b) => a.name.localeCompare(b.name));
+  $nav.replaceChildren(h("button", { onclick: () => run(async () => { await api("/logout", { method: "POST" }); renderLogin(); }) }, "退出"));
+  renderSubs();
 }
 
 function renderSubs() {
@@ -159,224 +164,169 @@ function renderSubs() {
     e.preventDefault();
     run(async () => {
       const sub = await api("/subscriptions", { method: "POST", body: { name: name.value.trim() } });
-      upsertSub(sub);
-      state.open.add(sub.name); saveOpen();
-      go("edit", sub.name);
+      updateSub(sub.name, sub);
+      toast("已创建");
     });
   };
-  const list = state.subs.map(renderSubCard);
   $app.replaceChildren(
     h("form", { class: "card row", onsubmit: create }, name, h("button", { class: "primary", type: "submit" }, "+ 新建订阅")),
-    ...(list.length ? list : [h("div", { class: "card muted" }, "还没有订阅。")]),
+    ...(state.subs.length ? state.subs.map(renderSubCard) : [h("div", { class: "card muted" }, "还没有订阅。")]),
     h("p", { class: "help" }, "提示：KV 列表是最终一致的，其他设备上刚创建或删除的订阅可能要稍后才出现在这里。"),
   );
 }
 
 function renderSubCard(sub) {
-  const open = state.open.has(sub.name);
-  const toggle = () => { open ? state.open.delete(sub.name) : state.open.add(sub.name); saveOpen(); renderSubs(); };
-  const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
-  const head = h("div", { class: "sub-head", onclick: toggle },
-    h("span", {}, open ? "▼" : "▶"),
-    h("span", { class: "name" }, sub.name),
-    h("span", { class: "badge" + (sub.enabled ? "" : " off") }, sub.enabled ? "启用" : "停用"),
-    h("code", { class: "muted" }, mask(sub.token)),
-    h("span", { class: "muted" }, "目标 " + sub.targets.filter((t) => t.enabled).length + "/" + sub.targets.length),
-    sub.note ? h("span", { class: "muted grow" }, sub.note) : h("span", { class: "grow" }),
-    h("button", { onclick: stop(() => go("edit", sub.name)) }, "编辑"),
-    h("button", { onclick: stop(() => resetToken(sub, renderSubs)) }, "重置 token"),
-  );
-  const urls = open
-    ? h("div", { class: "urls" }, state.meta.inbound.map((t) => {
-        const url = subUrl(t.type, sub);
-        return h("div", { class: "url-row" },
-          h("span", {}, h("b", {}, t.type), " ", h("span", { class: "muted" }, t.label)),
-          h("code", {}, url),
-          h("button", { onclick: () => copy(url) }, "复制"));
-      }))
-    : null;
-  return h("div", { class: "card" }, head, urls);
+  // Format dropdown + the matching URL with a copy button.
+  const formats = state.meta.inbound;
+  const chosen = formats.some((f) => f.type === state.format[sub.name]) ? state.format[sub.name] : "all";
+  const urlCode = h("code", { class: "url grow" }, subUrl(chosen, sub));
+  const select = h("select", { class: "fit", onchange: (e) => {
+    state.format[sub.name] = e.target.value;
+    localStorage.setItem("wr_format", JSON.stringify(state.format));
+    urlCode.textContent = subUrl(e.target.value, sub);
+  } }, formats.map((f) => h("option", { value: f.type, selected: f.type === chosen }, f.type + " · " + f.label)));
+
+  const targets = sub.targets.map((t) => h("div", { class: "target-row" },
+    h("span", { class: "badge" + (t.enabled ? "" : " off") }, t.enabled ? "启用" : "停用"),
+    h("b", {}, t.name),
+    h("span", { class: "muted grow" }, outMeta(t.type)?.label ?? t.type),
+    h("button", { onclick: () => testTarget(sub, t) }, "测试"),
+    h("button", { onclick: () => editTarget(sub, t) }, "编辑"),
+    h("button", { class: "danger", onclick: () => deleteTarget(sub, t) }, "删除")));
+
+  return h("div", { class: "card" },
+    h("div", { class: "row" },
+      h("span", { class: "sub-name" }, sub.name),
+      h("code", { class: "muted grow" }, mask(sub.token)),
+      h("button", { onclick: () => editSub(sub) }, "编辑订阅")),
+    h("div", { class: "row", style: "margin-top:10px" }, select, urlCode, h("button", { onclick: () => copy(urlCode.textContent) }, "复制")),
+    h("div", { class: "section" },
+      h("div", { class: "row", style: "margin-bottom:4px" },
+        h("h4", { class: "grow" }, "转发目标（" + sub.targets.length + "）"),
+        h("button", { onclick: () => editTarget(sub, null) }, "+ 添加目标")),
+      targets.length ? targets : h("p", { class: "muted", style: "margin:6px 0 0" }, "还没有目标，消息不会被转发。")));
 }
 
-function resetToken(sub, after) {
-  if (!confirm("重置「" + sub.name + "」的 token？所有客户端都需要更新 URL。")) return;
-  run(async () => {
-    upsertSub(await api("/subscriptions/" + sub.name + "/token", { method: "POST", body: {} }));
-    toast("token 已重置");
-    after();
+function editSub(sub) {
+  const name = h("input", { value: sub.name });
+  const token = h("input", { value: sub.token, autocomplete: "off" });
+  const rename = () => run(async () => {
+    const n = name.value.trim();
+    if (n === sub.name) return;
+    if (!confirm("改名后所有客户端的 URL 都会变，需要逐个更新。确定改名为「" + n + "」？")) return;
+    const updated = await api("/subscriptions/" + sub.name, { method: "PUT", body: { name: n } });
+    updateSub(sub.name, updated);
+    toast("已改名");
+    editSub(updated);
   });
+  const setToken = (body, msg) => run(async () => {
+    if (!confirm(msg)) return;
+    const updated = await api("/subscriptions/" + sub.name + "/token", { method: "POST", body });
+    updateSub(sub.name, updated);
+    toast("token 已更新");
+    editSub(updated);
+  });
+  const remove = () => {
+    if (!confirm("删除订阅「" + sub.name + "」及其全部转发目标？此操作不可恢复。")) return;
+    run(async () => {
+      await api("/subscriptions/" + sub.name, { method: "DELETE" });
+      closeDialog();
+      updateSub(sub.name, null);
+      toast("已删除");
+    });
+  };
+  openDialog(
+    h("h3", {}, "编辑订阅"),
+    h("label", {}, h("span", {}, "订阅名"),
+      h("div", { class: "row" }, h("div", { class: "grow" }, name), h("button", { onclick: rename }, "改名"))),
+    h("label", {}, h("span", {}, "Token"),
+      h("div", { class: "row" }, h("div", { class: "grow" }, token),
+        h("button", { onclick: () => setToken({ token: token.value.trim() }, "把 token 设置为输入框中的值？所有客户端都需要更新。") }, "设置"),
+        h("button", { onclick: () => setToken({}, "随机重置 token？所有客户端都需要更新。") }, "随机重置"))),
+    h("p", { class: "help" }, "token 需为 8–128 位，仅可包含字母、数字和 . _ ~ : -"),
+    h("div", { class: "actions" },
+      h("button", { class: "danger", onclick: remove }, "删除订阅"),
+      h("span", { class: "grow" }),
+      h("button", { onclick: closeDialog }, "关闭")));
 }
 
-const outMeta = (type) => state.meta.outbound.find((o) => o.type === type);
-
-/** Draft target being edited: config holds plain values, secrets start blank ("keep stored"). */
-function draftFrom(t) {
-  return { id: t.id, name: t.name, type: t.type, enabled: t.enabled, config: { ...t.config }, secrets_set: t.secrets_set || [], clear: [], copy_from: t.copy_from };
-}
-
-function newDraft(type) {
-  const m = outMeta(type);
+function emptyConfig(type) {
   const config = {};
-  for (const f of m.fields) config[f.key] = f.kind === "select" ? f.options[0] : "";
-  return { id: undefined, name: m.label, type, enabled: true, config, secrets_set: [], clear: [] };
+  for (const f of outMeta(type).fields) config[f.key] = f.kind === "select" ? f.options[0] : "";
+  return config;
 }
 
-function targetPayload(d) {
-  return { id: d.id, name: d.name, type: d.type, enabled: d.enabled, config: d.config, clear: d.clear, copy_from: d.copy_from };
-}
+/** Add (t = null) or edit one target in a dialog. Secret fields start blank and mean "keep the stored value". */
+function editTarget(sub, t) {
+  const d = t
+    ? { name: t.name, type: t.type, enabled: t.enabled, config: { ...t.config }, secrets_set: t.secrets_set || [], clear: [] }
+    : { name: "", type: state.meta.outbound[0].type, enabled: true, config: emptyConfig(state.meta.outbound[0].type), secrets_set: [], clear: [] };
+  const result = h("pre", { style: "display:none" });
+  const payload = () => ({ name: d.name, type: d.type, enabled: d.enabled, config: d.config, clear: d.clear });
 
-function renderTarget(d, i, drafts, sub, rerender) {
-  const m = outMeta(d.type);
-  const fields = m.fields.filter((f) => !f.showIf || f.showIf.values.includes(String(d.config[f.showIf.key])));
-  const inputs = fields.map((f) => {
-    const isSecret = m.secretFields.includes(f.key);
-    const set = isSecret && d.secrets_set.includes(f.key) && !d.clear.includes(f.key);
-    const placeholder = set ? "已设置，留空表示不修改" : f.placeholder || "";
-    const onchange = (e) => { d.config[f.key] = e.target.value; if (f.kind === "select") rerender(); };
-    let input;
-    if (f.kind === "select") input = h("select", { onchange }, f.options.map((o) => h("option", { value: o, selected: d.config[f.key] === o }, o)));
-    else if (f.kind === "textarea") input = h("textarea", { placeholder, oninput: onchange, value: d.config[f.key] ?? "" });
-    else input = h("input", { type: f.kind === "password" ? "password" : "text", placeholder, oninput: onchange, value: d.config[f.key] ?? "", autocomplete: "off" });
-    const clearBtn = set ? h("button", { class: "link", type: "button", onclick: () => { d.clear.push(f.key); d.config[f.key] = ""; rerender(); } }, "清空已保存的值") : null;
-    return h("label", { class: f.kind === "textarea" ? "full" : "" }, h("span", {}, f.label, " ", clearBtn), input, f.help ? h("div", { class: "help" }, f.help) : null);
-  });
-  const test = () => run(async () => {
-    if (!sub) throw new Error("请先保存订阅");
-    const r = await api("/subscriptions/" + sub.name + "/targets/" + (d.id || "new") + "/test", { method: "POST", body: { target: targetPayload(d) } });
-    alert((r.ok ? "✅ 成功" : "❌ 失败：" + (r.error || "")) + (r.status ? "\nHTTP " + r.status : "") + (r.response ? "\n\n" + r.response : ""));
-  });
-  return h("div", { class: "target" },
-    h("div", { class: "row", style: "margin-bottom:10px" },
-      h("b", {}, m.label),
-      h("input", { class: "grow", value: d.name, placeholder: "名称", oninput: (e) => (d.name = e.target.value) }),
-      h("label", { class: "inline" }, h("input", { type: "checkbox", checked: d.enabled, onchange: (e) => (d.enabled = e.target.checked) }), "启用"),
-      h("button", { type: "button", onclick: test }, "发送测试消息"),
-      h("button", { type: "button", class: "danger", onclick: () => { drafts.splice(i, 1); rerender(); } }, "删除")),
-    h("div", { class: "grid2" }, inputs));
-}
-
-function renderEdit(name) {
-  const sub = state.subs.find((s) => s.name === name);
-  if (!sub) return go("subs");
-  const form = { enabled: sub.enabled, note: sub.note };
-  const drafts = sub.targets.map(draftFrom);
-
-  const rerender = () => draw();
   function draw() {
-    const addType = h("select", {}, state.meta.outbound.map((o) => h("option", { value: o.type }, o.label)));
-    const others = state.subs.filter((s) => s.name !== sub.name).flatMap((s) => s.targets.map((t) => ({ s, t })));
-    const copyFrom = h("select", {}, h("option", { value: "" }, "从其他订阅复制目标…"),
-      others.map(({ s, t }, i) => h("option", { value: String(i) }, s.name + " / " + t.name + "（" + outMeta(t.type).label + "）")));
-    copyFrom.onchange = () => {
-      const pick = others[Number(copyFrom.value)];
-      if (!pick) return;
-      const d = draftFrom(pick.t);
-      d.id = undefined;
-      d.copy_from = { sub: pick.s.name, id: pick.t.id };
-      drafts.push(d);
-      rerender();
-    };
-    const tokenInput = h("input", { placeholder: "手动设置 token（8–128 位）", class: "grow" });
-    $app.replaceChildren(
-      h("div", { class: "row", style: "margin-bottom:12px" },
-        h("button", { onclick: () => go("subs") }, "← 返回"),
-        h("h3", { style: "margin:0" }, "订阅：" + sub.name)),
-      h("div", { class: "card" },
-        h("label", { class: "inline", style: "margin-bottom:10px" },
-          h("input", { type: "checkbox", checked: form.enabled, onchange: (e) => (form.enabled = e.target.checked) }), "启用订阅"),
-        h("label", {}, h("span", {}, "备注"), h("input", { value: form.note, oninput: (e) => (form.note = e.target.value) })),
-        h("div", {}, h("span", { class: "help" }, "Token"),
-          h("div", { class: "row" },
-            h("code", { class: "grow" }, sub.token),
-            h("button", { onclick: () => copy(sub.token) }, "复制"),
-            h("button", { onclick: () => resetToken(sub, () => renderEdit(sub.name)) }, "随机重置")),
-          h("div", { class: "row", style: "margin-top:8px" }, tokenInput,
-            h("button", { onclick: () => run(async () => {
-              upsertSub(await api("/subscriptions/" + sub.name + "/token", { method: "POST", body: { token: tokenInput.value.trim() } }));
-              toast("token 已更新"); renderEdit(sub.name);
-            }) }, "设置")))),
-      h("div", { class: "card" },
-        h("h3", {}, "转发目标"),
-        drafts.length ? drafts.map((d, i) => renderTarget(d, i, drafts, sub, rerender)) : h("p", { class: "muted" }, "还没有目标，消息不会被转发。"),
-        h("div", { class: "row" }, addType,
-          h("button", { onclick: () => { drafts.push(newDraft(addType.value)); rerender(); } }, "+ 添加目标"),
-          others.length ? copyFrom : null)),
-      h("div", { class: "card" },
-        h("h3", {}, "接入信息"),
-        renderAccessInfo(sub)),
-      h("div", { class: "row" },
-        h("button", { class: "primary", onclick: save }, "保存"),
+    const m = outMeta(d.type);
+    const fields = m.fields.filter((f) => !f.showIf || f.showIf.values.includes(String(d.config[f.showIf.key])));
+    const inputs = fields.map((f) => {
+      const isSecret = m.secretFields.includes(f.key);
+      const set = isSecret && d.secrets_set.includes(f.key) && !d.clear.includes(f.key);
+      const placeholder = set ? "已设置，留空表示不修改" : f.placeholder || "";
+      const onchange = (e) => { d.config[f.key] = e.target.value; if (f.kind === "select") draw(); };
+      let input;
+      if (f.kind === "select") input = h("select", { onchange }, f.options.map((o) => h("option", { value: o, selected: d.config[f.key] === o }, o)));
+      else if (f.kind === "textarea") input = h("textarea", { placeholder, oninput: onchange, value: d.config[f.key] ?? "" });
+      else input = h("input", { type: f.kind === "password" ? "password" : "text", placeholder, oninput: onchange, value: d.config[f.key] ?? "", autocomplete: "off" });
+      const clearBtn = set ? h("button", { class: "link", type: "button", onclick: () => { d.clear.push(f.key); d.config[f.key] = ""; draw(); } }, "清空已保存的值") : null;
+      return h("label", { class: f.kind === "textarea" ? "full" : "" }, h("span", {}, f.label, " ", clearBtn), input, f.help ? h("div", { class: "help" }, f.help) : null);
+    });
+    // The type can only be chosen when adding; an existing target keeps its type.
+    const typeSelect = t
+      ? h("input", { value: m.label, disabled: true })
+      : h("select", { onchange: (e) => { d.type = e.target.value; d.config = emptyConfig(d.type); draw(); } },
+          state.meta.outbound.map((o) => h("option", { value: o.type, selected: o.type === d.type }, o.label)));
+    openDialog(
+      h("h3", {}, t ? "编辑目标" : "添加目标"),
+      h("div", { class: "grid2" },
+        h("label", {}, h("span", {}, "类型"), typeSelect),
+        h("label", {}, h("span", {}, "名称"), h("input", { value: d.name, placeholder: m.label, oninput: (e) => (d.name = e.target.value) })),
+        ...inputs),
+      h("label", { class: "inline" }, h("input", { type: "checkbox", checked: d.enabled, onchange: (e) => (d.enabled = e.target.checked) }), "启用"),
+      result,
+      h("div", { class: "actions" },
+        t ? h("button", { onclick: () => testTarget(sub, t, payload(), result) }, "发送测试消息") : null,
         h("span", { class: "grow" }),
-        h("button", { class: "danger", onclick: remove }, "删除订阅")),
-    );
+        h("button", { onclick: closeDialog }, "取消"),
+        h("button", { class: "primary", onclick: save }, "保存")));
   }
 
   const save = () => run(async () => {
-    const updated = await api("/subscriptions/" + sub.name, {
-      method: "PUT",
-      body: { enabled: form.enabled, note: form.note, targets: drafts.map(targetPayload) },
-    });
-    upsertSub(updated);
+    const updated = t
+      ? await api("/subscriptions/" + sub.name + "/targets/" + t.id, { method: "PUT", body: payload() })
+      : await api("/subscriptions/" + sub.name + "/targets", { method: "POST", body: payload() });
+    closeDialog();
+    updateSub(sub.name, updated);
     toast("已保存");
-    renderEdit(sub.name);
   });
-
-  const remove = () => {
-    if (!confirm("删除订阅「" + sub.name + "」？此操作不可恢复。")) return;
-    run(async () => {
-      await api("/subscriptions/" + sub.name, { method: "DELETE" });
-      state.subs = state.subs.filter((s) => s.name !== sub.name);
-      state.open.delete(sub.name); saveOpen();
-      toast("已删除");
-      go("subs");
-    });
-  };
 
   draw();
 }
 
-/** App-style settings where the server address and the key are entered separately. */
-function renderAccessInfo(sub) {
-  const base = (type) => location.origin + "/" + type + "/" + encodeURIComponent(sub.name);
-  const rows = [
-    ["Bark App", "服务器：" + base("bark") + "　Key：" + sub.token],
-    ["ntfy App", "服务器：" + base("ntfy") + "　Topic：" + sub.token],
-    ["Gotify", "服务器：" + base("gotify") + "　App Token：" + sub.token],
-    ["Telegram", "API 地址：" + base("telegram") + "　Bot Token：" + sub.token],
-    ["curl", "curl -H 'Authorization: Bearer " + sub.token + "' -d '{\"title\":\"hi\",\"body\":\"hello\"}' " + base("default")],
-  ];
-  return h("div", {}, rows.map(([k, v]) =>
-    h("div", { class: "url-row" }, h("b", {}, k), h("code", {}, v), h("button", { onclick: () => copy(v) }, "复制"))));
+/** Sends a test message to a stored target, or to the unsaved form contents when `draft` is given. */
+function testTarget(sub, t, draft, out) {
+  run(async () => {
+    const r = await api("/subscriptions/" + sub.name + "/targets/" + t.id + "/test", { method: "POST", body: draft ? { target: draft } : {} });
+    const text = (r.ok ? "✅ 发送成功" : "❌ 发送失败：" + (r.error || "")) + (r.status ? "\nHTTP " + r.status : "") + (r.response ? "\n\n" + r.response : "");
+    if (out) { out.textContent = text; out.style.display = ""; }
+    else alert(text);
+  });
 }
 
-function renderDryRun() {
-  const saved = JSON.parse(localStorage.getItem("wr_dry") || "{}");
-  const first = state.subs[0];
-  const method = h("select", {}, ["POST", "GET", "PUT"].map((m) => h("option", { value: m, selected: (saved.method || "POST") === m }, m)));
-  const path = h("input", { class: "grow", value: saved.path || (first ? "/all/" + first.name + "?token=" + first.token : "/all/订阅名?token=xxx") });
-  const headers = h("textarea", { placeholder: "Content-Type: application/json", value: saved.headers ?? "Content-Type: application/json" });
-  const body = h("textarea", { style: "min-height:140px", value: saved.body ?? '{"title":"hello","body":"world"}' });
-  const out = h("pre", {}, "结果会显示在这里。不会实际发送到任何目标。");
-  const exec = () => run(async () => {
-    localStorage.setItem("wr_dry", JSON.stringify({ method: method.value, path: path.value, headers: headers.value, body: body.value }));
-    const hdrs = {};
-    for (const line of headers.value.split(/\r?\n/)) {
-      const i = line.indexOf(":");
-      if (i > 0) hdrs[line.slice(0, i).trim()] = line.slice(i + 1).trim();
-    }
-    let p = path.value.trim();
-    try { const u = new URL(p); p = u.pathname + u.search; } catch {}
-    const r = await api("/dry-run", { method: "POST", body: { method: method.value, path: p, headers: hdrs, body: body.value } });
-    out.textContent = JSON.stringify(r, null, 2);
+function deleteTarget(sub, t) {
+  if (!confirm("删除目标「" + t.name + "」？")) return;
+  run(async () => {
+    updateSub(sub.name, await api("/subscriptions/" + sub.name + "/targets/" + t.id, { method: "DELETE" }));
+    toast("已删除");
   });
-  $app.replaceChildren(h("div", { class: "card" },
-    h("h3", {}, "试运行"),
-    h("p", { class: "help" }, "粘贴一个请求，查看识别出的格式、解析出的消息，以及将发往各目标的请求。"),
-    h("div", { class: "row", style: "margin-bottom:10px" }, method, path),
-    h("label", {}, h("span", {}, "请求头（每行 Name: value）"), headers),
-    h("label", {}, h("span", {}, "Body"), body),
-    h("button", { class: "primary", onclick: exec }, "运行"),
-    out));
 }
 
 api("/meta").then(boot, () => {});

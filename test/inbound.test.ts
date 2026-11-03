@@ -14,11 +14,9 @@ describe("routing and auth", () => {
     expect((await call(`/nope/nas?token=${TOKEN}`)).status).toBe(404);
   });
 
-  it("returns 401 for unknown subscription, wrong token and disabled subscription alike", async () => {
+  it("returns 401 for unknown subscription and wrong token alike", async () => {
     expect((await call(`/default/missing?token=${TOKEN}&body=x`)).status).toBe(401);
     expect((await call(`/default/nas?token=wrong&body=x`)).status).toBe(401);
-    await seed("off", undefined, { enabled: false });
-    expect((await call(`/default/off?token=${TOKEN}&body=x`)).status).toBe(401);
     expect(sent).toHaveLength(0);
   });
 

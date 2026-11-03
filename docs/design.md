@@ -42,7 +42,7 @@
 ```
 
 - **类型**：`default`（自有格式）、`all`（自动识别）、`bark`、`ntfy`、`gotify`、`wecom`、`dingtalk`、`feishu`、`discord`、`slack`、`telegram`
-- **订阅名**：创建后不可修改，规则为 `[a-z0-9_-]{1,64}`
+- **订阅名**：规则为 `[a-z0-9_-]{1,64}`。后台可以改名，改名后所有客户端的 URL 都要更新
 - **剩余部分**：交给该类型的入站适配器按自己的规则解析（token 也可能在这里）
 - **保留路径**：`/admin`，以及 `/admin/api/*`
 
@@ -58,13 +58,11 @@
 {
   "name": "nas",
   "token": "T0k3n...",          // 必填，新建时自动生成随机值
-  "enabled": true,
-  "note": "家里 NAS 的通知",     // 可选
   "targets": [
     { "id": "t1", "name": "家庭群", "type": "feishu", "enabled": true,
-      "webhook_url": "https://open.feishu.cn/...", "sign_secret": "..." },
+      "config": { "webhook_url": "https://open.feishu.cn/...", "sign_secret": "..." } },
     { "id": "t2", "name": "手机", "type": "ntfy", "enabled": true,
-      "server": "https://ntfy.sh", "topic": "xxx", "auth": { "kind": "none" } }
+      "config": { "server": "https://ntfy.sh", "topic": "xxx", "auth_kind": "none" } }
   ],
   "created_at": "2026-11-02T00:00:00Z",
   "updated_at": "2026-11-02T00:00:00Z"
@@ -107,7 +105,7 @@ interface Message {
 - 每个订阅必须有一个 token，不支持公开订阅
 - 每个入站适配器到该格式约定的位置取 token（见第 6 节），再与订阅的 token 比较
 - 比较使用 `crypto.subtle.timingSafeEqual`，先比较长度
-- 订阅不存在、已停用、token 不匹配，统一返回 401，不区分具体原因，避免探测订阅名
+- 订阅不存在、token 不匹配，统一返回 401，不区分具体原因，避免探测订阅名
 
 ### 5.2 后台
 
@@ -254,7 +252,7 @@ interface OutboundAdapter<C> {
 
 ```
 1. 解析 URL：type、订阅名、剩余路径
-2. 读取 KV sub:{name}；不存在或 enabled=false → 401
+2. 读取 KV sub:{name}；不存在 → 401
 3. 入站适配器 extractToken + 比较；不匹配 → 401
 4. parse → Message；失败 → 400
 5. 对 enabled 的 targets 用 Promise.allSettled 并发 send
@@ -272,32 +270,30 @@ interface OutboundAdapter<C> {
 ### 9.1 页面
 
 ```
- 订阅                                                         [+ 新建]
- ▼ nas   启用   T0k•••••   目标 2                [编辑] [重置 token]
-   default    https://w.dev/default/nas?token=T0k3n                  [复制]
-   all        https://w.dev/all/nas?token=T0k3n                      [复制]
-   bark       https://w.dev/bark/nas/T0k3n/                          [复制]
-   ntfy       https://w.dev/ntfy/nas/T0k3n                           [复制]
-   gotify     https://w.dev/gotify/nas/message?token=T0k3n           [复制]
-   wecom      https://w.dev/wecom/nas/cgi-bin/webhook/send?key=T0k3n [复制]
-   ...（全部 11 种）
- ▶ ci    启用   Xy9•••••   目标 1
+ [订阅名 ____________ ] [+ 新建订阅]
+
+ nas   T0k•••••                                          [编辑订阅]
+ [all · 自动识别 ▾]  https://w.dev/all/nas?token=T0k3n        [复制]
+ ─────────────────────────────────────────────────────────────
+ 转发目标（2）                                          [+ 添加目标]
+ 启用  家庭群  飞书机器人                    [测试] [编辑] [删除]
+ 停用  手机    ntfy                         [测试] [编辑] [删除]
 ```
 
-- 订阅默认折叠，展开后列出全部 11 种入站类型的完整 URL，每行一个复制按钮
+每个订阅一张卡片：
+
+- 格式下拉框列出全部 11 种入站类型，旁边显示所选格式的完整 URL 和复制按钮。每个订阅上次选的格式记在 localStorage
 - URL 由前端用 `location.origin` 加各类型的模板拼出，后端不需要额外接口
-- Bark、ntfy、Gotify 的官方 App 需要分开填“服务器地址”和 key/topic/token，编辑页提供这种分开的写法
+- 转发目标直接列在卡片里，可以新增、单条编辑、单条删除、发送测试消息（返回目标服务器的原始响应）
 - 复制使用 `navigator.clipboard`（Workers 默认 HTTPS，本地 `wrangler dev` 用 localhost，均可用）
 
-编辑订阅页：
+“编辑订阅”弹窗只有三个操作：改名、设置或随机重置 token、删除订阅。
 
-- 启用/停用、备注
-- token：重置（随机生成）、手动设置
-- 目标列表：新增、编辑、删除、启用/停用、“发送测试消息”（返回目标服务器的原始响应）、“从其他订阅复制目标”
+目标编辑弹窗：
+
+- 新增时选择类型，编辑时类型不可改
 - 表单按目标 `type` 切换字段
 - 敏感字段（`secretFields`）显示为掩码；提交时留空表示不修改，明确清空需要单独操作，避免掩码值被写回
-
-试运行页：输入方法、路径、头和 body，显示识别结果、命中的信号、解析出的 Message，以及将要发往各目标的请求，但不实际发送。
 
 ### 9.2 接口
 
@@ -307,12 +303,14 @@ interface OutboundAdapter<C> {
 | POST | `/admin/api/logout` | 清除 cookie |
 | GET | `/admin/api/subscriptions` | 订阅列表（敏感字段打掩码，token 返回明文用于拼 URL） |
 | POST | `/admin/api/subscriptions` | 新建订阅，自动生成 token |
-| GET | `/admin/api/subscriptions/:name` | 订阅详情 |
-| PUT | `/admin/api/subscriptions/:name` | 更新订阅（不可改名） |
+| PUT | `/admin/api/subscriptions/:name` | 改名：body `{ name }` |
 | DELETE | `/admin/api/subscriptions/:name` | 删除订阅 |
 | POST | `/admin/api/subscriptions/:name/token` | 重置或手动设置 token |
+| POST | `/admin/api/subscriptions/:name/targets` | 新增目标 |
+| PUT | `/admin/api/subscriptions/:name/targets/:id` | 编辑单个目标 |
+| DELETE | `/admin/api/subscriptions/:name/targets/:id` | 删除单个目标 |
 | POST | `/admin/api/subscriptions/:name/targets/:id/test` | 给单个目标发测试消息 |
-| POST | `/admin/api/dry-run` | 试运行 |
+| GET | `/admin/api/meta` | 入站类型和出站表单定义 |
 
 写操作检查 `Origin` 头，配合 `SameSite=Strict` cookie 防 CSRF。
 

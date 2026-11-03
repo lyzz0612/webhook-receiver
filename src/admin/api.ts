@@ -9,22 +9,22 @@ import {
   type AppEnv,
 } from "../auth";
 import { randomToken } from "../crypto";
-import { buildRequest, sendToTarget } from "../forward";
+import { sendToTarget } from "../forward";
 import { errorMessage, HttpError, isObj, str } from "../http";
-import { ALL_URL_TEMPLATE, INBOUND, INBOUND_TYPES, tierName } from "../inbound";
+import { ALL_URL_TEMPLATE, INBOUND, INBOUND_TYPES } from "../inbound";
 import { OUTBOUND, OUTBOUND_FIELDS } from "../outbound";
 import {
   deleteSubscription,
   getSubscription,
   listSubscriptions,
+  MAX_TARGETS,
   NAME_RE,
   putSubscription,
   TOKEN_RE,
   type Subscription,
+  type Target,
 } from "../store";
-import type { Target } from "../store";
-import { resolve } from "../webhook";
-import { copyKey, maskTarget, mergeTarget, mergeTargets } from "./targets";
+import { maskTarget, mergeTarget } from "./targets";
 
 export const adminApi = new Hono<AppEnv>();
 
@@ -73,17 +73,22 @@ async function load(c: Context<AppEnv>): Promise<Subscription> {
   return sub;
 }
 
-/** Loads the source targets referenced by `copy_from`, so copied targets keep their secrets. */
-async function copySources(kv: KVNamespace, inputs: unknown): Promise<Map<string, Target>> {
-  const map = new Map<string, Target>();
-  for (const t of Array.isArray(inputs) ? inputs : []) {
-    const ref = isObj(t) && isObj(t.copy_from) ? t.copy_from : undefined;
-    if (!ref || map.has(copyKey(ref))) continue;
-    const src = await getSubscription(kv, str(ref.sub) ?? "");
-    const target = src?.targets.find((x) => x.id === str(ref.id));
-    if (target) map.set(copyKey(ref), target);
-  }
-  return map;
+async function save(kv: KVNamespace, sub: Subscription) {
+  sub.updated_at = new Date().toISOString();
+  await putSubscription(kv, sub);
+  return view(sub);
+}
+
+function findTarget(sub: Subscription, id: string | undefined): Target {
+  const t = sub.targets.find((x) => x.id === id);
+  if (!t) throw new HttpError(404, "目标不存在");
+  return t;
+}
+
+function checkName(name: unknown): string {
+  const n = str(name)?.trim() ?? "";
+  if (!NAME_RE.test(n)) throw new HttpError(400, "订阅名需为 1–64 位小写字母、数字、_ 或 -");
+  return n;
 }
 
 function checkToken(token: unknown): string {
@@ -112,16 +117,13 @@ adminApi.get("/subscriptions", async (c) => c.json((await listSubscriptions(c.en
 
 adminApi.post("/subscriptions", async (c) => {
   const body = await readJson(c);
-  const name = str(body.name)?.trim() ?? "";
-  if (!NAME_RE.test(name)) throw new HttpError(400, "订阅名需为 1–64 位小写字母、数字、_ 或 -");
+  const name = checkName(body.name);
   if (await getSubscription(c.env.SUBS, name)) throw new HttpError(409, "订阅已存在");
   const now = new Date().toISOString();
   const sub: Subscription = {
     name,
     token: body.token ? checkToken(body.token) : randomToken(),
-    enabled: body.enabled !== false,
-    note: str(body.note) ?? "",
-    targets: body.targets ? mergeTargets(body.targets, [], await copySources(c.env.SUBS, body.targets)) : [],
+    targets: [],
     created_at: now,
     updated_at: now,
   };
@@ -129,19 +131,17 @@ adminApi.post("/subscriptions", async (c) => {
   return c.json(view(sub), 201);
 });
 
-adminApi.get("/subscriptions/:name", async (c) => c.json(view(await load(c))));
-
+/** Renames the subscription: body { name }. Every client URL changes with it. */
 adminApi.put("/subscriptions/:name", async (c) => {
   const sub = await load(c);
-  const body = await readJson(c);
-  if (body.enabled !== undefined) sub.enabled = body.enabled !== false;
-  if (body.note !== undefined) sub.note = str(body.note) ?? "";
-  if (body.targets !== undefined) {
-    sub.targets = mergeTargets(body.targets, sub.targets, await copySources(c.env.SUBS, body.targets));
-  }
-  sub.updated_at = new Date().toISOString();
-  await putSubscription(c.env.SUBS, sub);
-  return c.json(view(sub));
+  const name = checkName((await readJson(c)).name);
+  if (name === sub.name) return c.json(view(sub));
+  if (await getSubscription(c.env.SUBS, name)) throw new HttpError(409, "订阅名已存在");
+  const oldName = sub.name;
+  sub.name = name;
+  const updated = await save(c.env.SUBS, sub);
+  await deleteSubscription(c.env.SUBS, oldName);
+  return c.json(updated);
 });
 
 adminApi.delete("/subscriptions/:name", async (c) => {
@@ -155,60 +155,39 @@ adminApi.post("/subscriptions/:name/token", async (c) => {
   const sub = await load(c);
   const body = await readJson(c);
   sub.token = body.token ? checkToken(body.token) : randomToken();
-  sub.updated_at = new Date().toISOString();
-  await putSubscription(c.env.SUBS, sub);
-  return c.json(view(sub));
+  return c.json(await save(c.env.SUBS, sub));
+});
+
+adminApi.post("/subscriptions/:name/targets", async (c) => {
+  const sub = await load(c);
+  if (sub.targets.length >= MAX_TARGETS) throw new HttpError(400, `每个订阅最多 ${MAX_TARGETS} 个目标`);
+  sub.targets.push(mergeTarget(await readJson(c), undefined));
+  return c.json(await save(c.env.SUBS, sub), 201);
+});
+
+adminApi.put("/subscriptions/:name/targets/:id", async (c) => {
+  const sub = await load(c);
+  const existing = findTarget(sub, c.req.param("id"));
+  const updated = mergeTarget(await readJson(c), existing);
+  sub.targets = sub.targets.map((t) => (t.id === existing.id ? updated : t));
+  return c.json(await save(c.env.SUBS, sub));
+});
+
+adminApi.delete("/subscriptions/:name/targets/:id", async (c) => {
+  const sub = await load(c);
+  const existing = findTarget(sub, c.req.param("id"));
+  sub.targets = sub.targets.filter((t) => t.id !== existing.id);
+  return c.json(await save(c.env.SUBS, sub));
 });
 
 const TEST_MESSAGE = { title: "测试消息", body: "这是一条来自 webhook-receiver 的测试消息。" };
 
-/** Tests the stored target, or an unsaved draft sent as { target } (blank secrets fall back to the stored ones). */
+/** Tests the stored target, or unsaved form contents sent as { target } (blank secrets fall back to the stored ones). */
 adminApi.post("/subscriptions/:name/targets/:id/test", async (c) => {
   const sub = await load(c);
   const stored = sub.targets.find((t) => t.id === c.req.param("id"));
   const body = await readJson(c);
-  let target = stored;
-  if (body.target) {
-    const copied = isObj(body.target) ? (await copySources(c.env.SUBS, [body.target])).get(copyKey(body.target.copy_from)) : undefined;
-    target = mergeTarget(body.target, stored, stored ?? copied);
-  }
+  const target = body.target ? mergeTarget(body.target, stored) : stored;
   if (!target) throw new HttpError(404, "目标不存在");
   return c.json(await sendToTarget(target, TEST_MESSAGE));
-});
-
-/** Body { method, path, headers, body }: resolve the request like a real webhook, but don't send anything. */
-adminApi.post("/dry-run", async (c) => {
-  const input = await readJson(c);
-  const method = (str(input.method) ?? "POST").toUpperCase();
-  const path = str(input.path) ?? "/";
-  const headers = new Headers();
-  if (isObj(input.headers)) for (const [k, v] of Object.entries(input.headers)) headers.set(k, String(v));
-  const url = new URL(path.startsWith("/") ? path : `/${path}`, new URL(c.req.url).origin);
-  const hasBody = method !== "GET" && method !== "HEAD" && typeof input.body === "string" && input.body !== "";
-  const req = new Request(url, { method, headers, body: hasBody ? (input.body as string) : undefined });
-
-  try {
-    const r = await resolve(req, c.env.SUBS);
-    const requests = await Promise.all(
-      r.sub.targets.map(async (t) => {
-        try {
-          const out = await buildRequest(t, r.message);
-          return { id: t.id, name: t.name, type: t.type, enabled: t.enabled, request: { url: out.url, ...out.init } };
-        } catch (e) {
-          return { id: t.id, name: t.name, type: t.type, enabled: t.enabled, error: errorMessage(e) };
-        }
-      }),
-    );
-    return c.json({
-      ok: true,
-      format: r.adapter.type,
-      tier: r.detection ? tierName(r.detection.tier) : "explicit",
-      candidates: r.detection?.candidates.map((x) => ({ type: x.type, tier: x.tier === null ? null : tierName(x.tier) })),
-      message: r.message,
-      requests,
-    });
-  } catch (e) {
-    if (e instanceof HttpError) return c.json({ ok: false, status: e.status, error: e.message });
-    throw e;
-  }
 });

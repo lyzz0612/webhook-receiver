@@ -20,8 +20,8 @@ export async function resolve(req: Request, kv: KVNamespace): Promise<Resolved> 
   if (!type || !subName || (type !== "all" && !INBOUND[type])) throw new HttpError(404, "not found");
 
   const sub = await getSubscription(kv, subName);
-  // Unknown subscription, disabled subscription and wrong token all look the same to the caller.
-  if (!sub || !sub.enabled) throw new HttpError(401, "unauthorized");
+  // Unknown subscription and wrong token look the same to the caller.
+  if (!sub) throw new HttpError(401, "unauthorized");
 
   const view = await buildView(req, rest);
   let adapter: InboundAdapter;

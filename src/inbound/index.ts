@@ -31,8 +31,6 @@ export async function tokenMatches(adapter: InboundAdapter, v: RequestView, toke
 export interface Detection {
   adapter: InboundAdapter;
   tier: Tier;
-  /** Candidates whose token position matched, for the dry-run page. */
-  candidates: { type: string; tier: Tier | null }[];
 }
 
 /**
@@ -41,18 +39,16 @@ export interface Detection {
  * Returns null when no adapter found the token.
  */
 export async function detect(v: RequestView, token: string): Promise<Detection | null> {
-  const candidates: Detection["candidates"] = [];
-  let best: { adapter: InboundAdapter; tier: Tier } | null = null;
+  let matched = false;
+  let best: Detection | null = null;
   for (const adapter of SPECIFIC) {
     if (!(await tokenMatches(adapter, v, token))) continue;
+    matched = true;
     const tier = adapter.detect(v);
-    candidates.push({ type: adapter.type, tier });
     if (tier !== null && tier > Tier.Weak && (!best || tier > best.tier)) best = { adapter, tier };
   }
-  const defaultMatches = await tokenMatches(defaultIn, v, token);
-  if (defaultMatches) candidates.push({ type: "default", tier: Tier.Weak });
-  if (best) return { ...best, candidates };
-  if (defaultMatches || candidates.length) return { adapter: defaultIn, tier: Tier.Weak, candidates };
+  if (best) return best;
+  if (matched || (await tokenMatches(defaultIn, v, token))) return { adapter: defaultIn, tier: Tier.Weak };
   return null;
 }
 

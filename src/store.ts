@@ -9,8 +9,6 @@ export interface Target {
 export interface Subscription {
   name: string;
   token: string;
-  enabled: boolean;
-  note: string;
   targets: Target[];
   created_at: string;
   updated_at: string;

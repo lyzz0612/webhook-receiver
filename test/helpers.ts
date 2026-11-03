@@ -46,8 +46,6 @@ export async function seed(name = "nas", targets: Target[] = [webhookTarget()], 
   const sub: Subscription = {
     name,
     token: TOKEN,
-    enabled: true,
-    note: "",
     targets,
     created_at: "2026-11-02T00:00:00Z",
     updated_at: "2026-11-02T00:00:00Z",
