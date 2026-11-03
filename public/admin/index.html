@@ -6,53 +6,134 @@
 <meta name="robots" content="noindex">
 <title>Webhook Receiver</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--line:#e3e6ea;--text:#1f2328;--muted:#6b7280;--accent:#2563eb;--danger:#dc2626}
+:root{
+  --paper:#E6ECE8;--sheet:#FAFBF9;--ink:#16302A;--muted:#5C6E68;--line:#CBD6D0;
+  --wire:#9DB3AA;--lamp:#22A06B;--danger:#B3372E;--focus:#2C7A5F;
+  --mono:ui-monospace,"Cascadia Mono","JetBrains Mono",Consolas,"Liberation Mono",monospace;
+}
 *{box-sizing:border-box}
-body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text)}
-header{display:flex;align-items:center;gap:16px;padding:12px 24px;background:var(--card);border-bottom:1px solid var(--line)}
-header h1{font-size:16px;margin:0;flex:1}
-main{max-width:1080px;margin:24px auto;padding:0 16px}
-h3{font-size:15px;margin:0 0 12px}
-h4{font-size:13px;margin:0;color:var(--muted);font-weight:600}
-.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
-button{font:inherit;padding:5px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
-button:hover{border-color:#b8bec7}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+body{margin:0;min-height:100vh;font:14px/1.6 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased}
+.wrap{width:min(860px,100% - 32px);margin-inline:auto}
+header{padding:28px 0 6px}
+header .wrap{display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;flex:1;font-weight:650;font-size:16px}
+.brand svg{flex:none}
+main{padding:14px 0 64px}
+h2{font-size:17px;font-weight:650;margin:0}
+h3{font-size:16px;font-weight:650;margin:0 0 18px}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:16px}
+button{font:inherit;color:inherit;padding:6px 14px;border:1px solid var(--line);border-radius:7px;background:var(--sheet);cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--wire);background:#fff}
+button.primary{background:var(--ink);border-color:var(--ink);color:var(--sheet)}
+button.primary:hover{background:#21443B;border-color:#21443B}
+button.quiet{border-color:transparent;background:none;color:var(--muted);padding:4px 8px}
+button.quiet:hover{color:var(--ink);background:var(--paper)}
 button.danger{color:var(--danger)}
-button.link{border:none;background:none;color:var(--accent);padding:0;font-size:12px}
-input,select,textarea{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;width:100%;background:#fff}
-input[type=checkbox]{width:auto}
-select.fit{width:auto}
-textarea{min-height:80px;font-family:ui-monospace,Consolas,monospace;font-size:13px}
-label{display:block;margin-bottom:10px}
-label>span{display:block;color:var(--muted);font-size:12px;margin-bottom:2px}
-label.inline{display:flex;gap:6px;align-items:center;margin:0}
-.help{color:var(--muted);font-size:12px}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button.quiet.danger{color:var(--muted)}
+button.quiet.danger:hover,button.quiet.danger:focus-visible{color:var(--danger);background:#F4E4E2}
+button.link{border:none;background:none;color:var(--focus);padding:0;font-size:12px;text-decoration:underline}
+button.done{border-color:var(--lamp);color:#17794F}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+input,select,textarea{font:inherit;color:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:7px;width:100%;background:#fff}
+input:focus,select:focus,textarea:focus{border-color:var(--focus);outline:none;box-shadow:0 0 0 3px rgba(44,122,95,.18)}
+input[disabled]{background:var(--paper);color:var(--muted)}
+input[type=checkbox]{width:auto;accent-color:var(--ink)}
+textarea{min-height:84px;font-family:var(--mono);font-size:13px}
+label{display:block;margin-bottom:12px}
+label>span{display:block;color:var(--muted);font-size:12.5px;margin-bottom:4px}
+label.inline{display:flex;gap:8px;align-items:center;margin:4px 0 0}
+.help{color:var(--muted);font-size:12.5px;margin:4px 0 0}
+.row{display:flex;gap:8px;align-items:center}
 .grow{flex:1;min-width:0}
 .muted{color:var(--muted)}
-.badge{display:inline-block;padding:0 8px;border-radius:10px;font-size:12px;background:#eef2ff;color:var(--accent)}
-.badge.off{background:#f3f4f6;color:var(--muted)}
-.sub-name{font-weight:600;font-size:15px}
-.section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-.target-row{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
-.target-row:last-child{border-bottom:none}
-code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;word-break:break-all}
-.url{background:#f6f8fa;border:1px solid var(--line);border-radius:6px;padding:5px 8px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.mono{font-family:var(--mono);font-size:12.5px}
+.toolbar{display:flex;align-items:center;gap:12px;margin:6px 0 14px;flex-wrap:wrap}
+.toolbar h2{flex:1}
+.toolbar form{display:flex;gap:8px}
+.toolbar input{width:230px}
+
+/* A subscription panel has two zones: where messages arrive (top) and where they go (tinted band below). */
+.sub{padding:0;overflow:hidden}
+.sub-in{padding:18px 22px 20px}
+.sub-out{background:#E3EBE6;border-top:1px solid #C3D0C9;padding:14px 22px 10px}
+.sub-out .wires li::before,.sub-out .wires li::after{border-color:#8FA79D}
+.zone-label{font-size:12.5px;color:var(--muted);margin:0 0 6px}
+.sub-out .zone-label{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.sub-out .zone-label::before{content:"";width:8px;height:8px;border-radius:50%;border:1.5px solid var(--wire);background:var(--sheet)}
+.sub-head{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+.sub-name{font-size:17px;font-weight:650;letter-spacing:.01em}
+.sub-token{color:var(--muted)}
+.inlet{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:9px;background:#fff;overflow:hidden}
+.inlet select{width:auto;border:none;border-right:1px solid var(--line);border-radius:0;background:var(--paper);padding:8px 10px;font-size:13px}
+.inlet select:focus{box-shadow:inset 0 0 0 2px var(--focus)}
+.inlet .url{flex:1;min-width:0;align-self:center;padding:0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inlet button{border:none;border-left:1px solid var(--line);border-radius:0;padding:0 16px;background:#fff}
+.inlet button:hover{background:var(--paper)}
+.inlet button.done{color:#17794F;border-left-color:var(--line)}
+
+.wires{list-style:none;margin:0;padding:0 0 0 3px}
+.wires li{position:relative;display:flex;align-items:center;gap:10px;min-height:44px;padding-left:22px}
+.wires li::before{content:"";position:absolute;left:0;top:0;bottom:0;border-left:1.5px solid var(--wire)}
+.wires li::after{content:"";position:absolute;left:0;top:50%;width:14px;border-top:1.5px solid var(--wire)}
+.wires li:last-child::before{bottom:50%}
+.wires li.add::before,.wires li.add::after{border-style:dashed}
+.lamp{flex:none;width:9px;height:9px;border-radius:50%;background:var(--lamp);box-shadow:0 0 0 3px rgba(34,160,107,.16)}
+.off .lamp{background:none;box-shadow:none;border:1.5px solid var(--wire)}
+.t-type{font-weight:600;white-space:nowrap}
+.t-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:12em}
+.t-sum{flex:1;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t-state{font-size:12px;color:var(--muted);white-space:nowrap}
+.off .t-type,.off .t-name{color:var(--muted)}
+.t-actions{display:flex;gap:2px;flex:none}
+.wires li.add{color:var(--muted)}
+.wires li.add button{color:var(--focus);padding-left:0}
+.wires li.add button:hover{background:none;text-decoration:underline}
+
+.empty{text-align:center;padding:44px 22px;color:var(--muted)}
+.empty p{margin:0 0 4px}
+.foot{text-align:center;font-size:12.5px;color:var(--muted);margin-top:24px}
+
+.login{width:min(340px,100%);margin:12vh auto 0}
+.login .brand{justify-content:center;margin-bottom:18px;font-size:17px}
+.login button{width:100%;margin-top:4px}
+.login .err{color:var(--danger);font-size:13px;min-height:1.6em;margin:2px 0 6px}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
 .grid2 .full{grid-column:1/-1}
-pre{background:#0f172a;color:#e2e8f0;padding:10px;border-radius:6px;overflow:auto;font-size:12.5px;max-height:200px;white-space:pre-wrap;word-break:break-all;margin:10px 0 0}
-dialog{border:none;border-radius:10px;padding:20px;width:min(600px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.2)}
-dialog::backdrop{background:rgba(15,23,42,.35)}
-.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:8px 16px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:10}
+dialog{border:1px solid var(--line);border-radius:14px;padding:24px;width:min(580px,calc(100vw - 24px));background:var(--sheet);color:var(--ink)}
+dialog::backdrop{background:rgba(22,48,42,.38)}
+.field-row{display:flex;gap:8px}
+.danger-zone{display:flex;align-items:center;gap:12px;margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--sheet);padding:9px 18px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:10;max-width:calc(100vw - 32px)}
 #toast.show{opacity:1}
-@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+
+@media (max-width:620px){
+  header{padding-top:18px}
+  .panel{padding:16px}
+  .sub{padding:0}
+  .sub-in{padding:16px}
+  .sub-out{padding:12px 16px 8px}
+  .toolbar form,.toolbar input{width:100%}
+  .toolbar form{flex:1 1 100%}
+  .inlet{flex-wrap:wrap}
+  .inlet select{flex:1 1 100%;border-right:none;border-bottom:1px solid var(--line)}
+  .inlet .url{padding:10px 12px}
+  .inlet button{padding:10px 16px}
+  .wires{padding-left:8px}
+  .wires li{gap:8px}
+  /* One identifier per row on narrow screens: the name if there is one, else the summary (ntfy topic). */
+  .has-name .t-sum{display:none}
+  .t-name{flex:1;min-width:0;max-width:none}
+  .t-state{display:none}
+  .grid2{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header><h1>Webhook Receiver</h1><nav id="nav" class="row"></nav></header>
-<main id="app"></main>
+<header><div class="wrap"><div class="brand" id="brand"></div><nav id="nav" class="row"></nav></div></header>
+<main><div class="wrap" id="app"></div></main>
 <dialog id="dlg"></dialog>
 <div id="toast"></div>
 <script>
@@ -100,10 +181,28 @@ async function run(fn) {
   try { return await fn(); } catch (e) { toast(e.message); }
 }
 
-async function copy(text) {
-  try { await navigator.clipboard.writeText(text); toast("已复制"); }
-  catch { prompt("复制以下内容", text); }
+/** Copies text; the button itself confirms ("已复制") for a moment. */
+async function copy(text, button) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { prompt("复制以下内容", text); return; }
+  if (!button) return toast("已复制");
+  button.textContent = "已复制";
+  button.classList.add("done");
+  clearTimeout(button.timer);
+  button.timer = setTimeout(() => { button.textContent = "复制"; button.classList.remove("done"); }, 1400);
 }
+
+/** One inlet branching into three outlets: the relay this tool is. */
+function logo(size = 22) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("width", size); svg.setAttribute("height", size); svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = '<g fill="none" stroke="#16302A" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h6M9 12c3 0 3-7 7-7M9 12h7M9 12c3 0 3 7 7 7"/></g>'
+    + '<g fill="#22A06B"><circle cx="18.5" cy="5" r="2.2"/><circle cx="18.5" cy="12" r="2.2"/><circle cx="18.5" cy="19" r="2.2"/></g>';
+  return svg;
+}
+document.getElementById("brand").append(logo(), "Webhook Receiver");
 
 const mask = (t) => (t ? t.slice(0, 3) + "•••••" : "");
 const outMeta = (type) => state.meta.outbound.find((o) => o.type === type);
@@ -140,15 +239,20 @@ function updateSub(oldName, sub) {
 
 function renderLogin() {
   $nav.replaceChildren();
-  const pwd = h("input", { type: "password", placeholder: "管理密码", autocomplete: "current-password" });
+  const pwd = h("input", { type: "password", placeholder: "管理密码", autocomplete: "current-password", "aria-label": "管理密码" });
+  const err = h("p", { class: "err", role: "alert" });
   const submit = (e) => {
     e.preventDefault();
-    run(async () => { await api("/login", { method: "POST", body: { password: pwd.value } }); await boot(); });
+    api("/login", { method: "POST", body: { password: pwd.value } })
+      .then(boot)
+      .catch((x) => { err.textContent = x.message; pwd.select(); });
   };
+  document.getElementById("brand").style.visibility = "hidden";
   $app.replaceChildren(
-    h("form", { class: "card", style: "max-width:360px;margin:80px auto", onsubmit: submit },
-      h("h3", {}, "登录"),
+    h("form", { class: "login panel", onsubmit: submit },
+      h("div", { class: "brand" }, logo(26), "Webhook Receiver"),
       h("label", {}, pwd),
+      err,
       h("button", { class: "primary", type: "submit" }, "登录")),
   );
   pwd.focus();
@@ -157,57 +261,73 @@ function renderLogin() {
 async function boot() {
   state.meta = await api("/meta");
   state.subs = await api("/subscriptions");
-  $nav.replaceChildren(h("button", { onclick: () => run(async () => { await api("/logout", { method: "POST" }); renderLogin(); }) }, "退出"));
+  document.getElementById("brand").style.visibility = "";
+  $nav.replaceChildren(h("button", { class: "quiet", onclick: () => run(async () => { await api("/logout", { method: "POST" }); renderLogin(); }) }, "退出登录"));
   renderSubs();
 }
 
 function renderSubs() {
-  const name = h("input", { placeholder: "订阅名（小写字母、数字、_、-）", class: "grow" });
+  const name = h("input", { placeholder: "新订阅名，如 nas", "aria-label": "新订阅名", pattern: "[a-z0-9_\\-]{1,64}", title: "1–64 位小写字母、数字、_ 或 -" });
   const create = (e) => {
     e.preventDefault();
     run(async () => {
       const sub = await api("/subscriptions", { method: "POST", body: { name: name.value.trim() } });
       updateSub(sub.name, sub);
-      toast("已创建");
+      toast("已新建订阅 " + sub.name);
     });
   };
+  const list = state.subs.length
+    ? state.subs.map(renderSubPanel)
+    : [h("div", { class: "panel empty" },
+        h("p", {}, "还没有订阅。"),
+        h("p", {}, "在右上角输入一个名字新建，然后把生成的地址填到要推送通知的应用里。"))];
   $app.replaceChildren(
-    h("form", { class: "card row", onsubmit: create }, name, h("button", { class: "primary", type: "submit" }, "+ 新建订阅")),
-    ...(state.subs.length ? state.subs.map(renderSubCard) : [h("div", { class: "card muted" }, "还没有订阅。")]),
-    h("p", { class: "help" }, "提示：KV 列表是最终一致的，其他设备上刚创建或删除的订阅可能要稍后才出现在这里。"),
+    h("div", { class: "toolbar" },
+      h("h2", {}, "订阅"),
+      h("form", { onsubmit: create }, name, h("button", { class: "primary", type: "submit" }, "新建"))),
+    ...list,
+    state.subs.length ? h("p", { class: "foot" }, "其他设备上的改动可能稍后才显示。") : null,
   );
 }
 
-function renderSubCard(sub) {
-  // Format dropdown + the matching URL with a copy button.
+function renderSubPanel(sub) {
   const formats = state.meta.inbound;
   const chosen = formats.some((f) => f.type === state.format[sub.name]) ? state.format[sub.name] : "all";
-  const urlCode = h("code", { class: "url grow" }, subUrl(chosen, sub));
-  const select = h("select", { class: "fit", onchange: (e) => {
+  const url = h("span", { class: "url mono", title: "" });
+  const setUrl = (type) => { url.textContent = subUrl(type, sub); url.title = url.textContent; };
+  setUrl(chosen);
+  const select = h("select", { "aria-label": "推送格式", onchange: (e) => {
     state.format[sub.name] = e.target.value;
     localStorage.setItem("wr_format", JSON.stringify(state.format));
-    urlCode.textContent = subUrl(e.target.value, sub);
-  } }, formats.map((f) => h("option", { value: f.type, selected: f.type === chosen }, f.type + " · " + f.label)));
+    setUrl(e.target.value);
+  } }, formats.map((f) => h("option", { value: f.type, selected: f.type === chosen }, f.label)));
+  const copyBtn = h("button", { onclick: () => copy(url.textContent, copyBtn) }, "复制");
 
-  const targets = sub.targets.map((t) => h("div", { class: "target-row" },
-    h("span", { class: "badge" + (t.enabled ? "" : " off") }, t.enabled ? "启用" : "停用"),
-    h("b", {}, typeLabel(t)),
-    t.name ? h("span", {}, t.name) : null,
-    h("code", { class: "muted grow" }, t.summary || ""),
-    h("button", { onclick: () => editTarget(sub, t) }, "编辑"),
-    h("button", { class: "danger", onclick: () => deleteTarget(sub, t) }, "删除")));
+  const branches = sub.targets.map((t) => h("li", { class: [t.enabled ? "" : "off", t.name ? "has-name" : ""].join(" ").trim() || undefined },
+    h("span", { class: "lamp", title: t.enabled ? "已启用" : "已停用" }),
+    h("span", { class: "t-type" }, typeLabel(t)),
+    t.name ? h("span", { class: "t-name" }, t.name) : null,
+    h("span", { class: "t-sum mono", title: t.summary || "" }, t.summary || ""),
+    t.enabled ? null : h("span", { class: "t-state" }, "已停用"),
+    h("span", { class: "t-actions" },
+      h("button", { class: "quiet", onclick: () => editTarget(sub, t) }, "编辑"),
+      h("button", { class: "quiet danger", onclick: () => deleteTarget(sub, t) }, "删除"))));
+  branches.push(h("li", { class: "add" },
+    h("button", { class: "quiet", onclick: () => editTarget(sub, null) },
+      sub.targets.length ? "添加转发目标" : "添加转发目标，收到的通知会发到这里")));
 
-  return h("div", { class: "card" },
-    h("div", { class: "row" },
-      h("span", { class: "sub-name" }, sub.name),
-      h("code", { class: "muted grow" }, mask(sub.token)),
-      h("button", { onclick: () => editSub(sub) }, "编辑订阅")),
-    h("div", { class: "row", style: "margin-top:10px" }, select, urlCode, h("button", { onclick: () => copy(urlCode.textContent) }, "复制")),
-    h("div", { class: "section" },
-      h("div", { class: "row", style: "margin-bottom:4px" },
-        h("h4", { class: "grow" }, "转发目标（" + sub.targets.length + "）"),
-        h("button", { onclick: () => editTarget(sub, null) }, "+ 添加目标")),
-      targets.length ? targets : h("p", { class: "muted", style: "margin:6px 0 0" }, "还没有目标，消息不会被转发。")));
+  const active = sub.targets.filter((t) => t.enabled).length;
+  return h("section", { class: "panel sub", "aria-label": "订阅 " + sub.name },
+    h("div", { class: "sub-in" },
+      h("div", { class: "sub-head" },
+        h("span", { class: "sub-name" }, sub.name),
+        h("span", { class: "sub-token mono grow" }, "token " + mask(sub.token)),
+        h("button", { class: "quiet", onclick: () => editSub(sub) }, "设置")),
+      h("p", { class: "zone-label" }, "接收地址，选择推送格式后复制给发送方"),
+      h("div", { class: "inlet" }, select, url, copyBtn)),
+    h("div", { class: "sub-out" },
+      h("p", { class: "zone-label" }, sub.targets.length ? `转发到 ${active} 个目标` + (active < sub.targets.length ? `，${sub.targets.length - active} 个已停用` : "") : "转发到"),
+      h("ul", { class: "wires" }, branches)));
 }
 
 function editSub(sub) {
@@ -238,19 +358,21 @@ function editSub(sub) {
       toast("已删除");
     });
   };
+  token.classList.add("mono");
   openDialog(
-    h("h3", {}, "编辑订阅"),
+    h("h3", {}, "订阅设置"),
     h("label", {}, h("span", {}, "订阅名"),
-      h("div", { class: "row" }, h("div", { class: "grow" }, name), h("button", { onclick: rename }, "改名"))),
+      h("div", { class: "field-row" }, h("div", { class: "grow" }, name), h("button", { onclick: rename }, "改名"))),
+    h("p", { class: "help", style: "margin:-6px 0 14px" }, "改名后，所有应用里填的地址都要换成新的。"),
     h("label", {}, h("span", {}, "Token"),
-      h("div", { class: "row" }, h("div", { class: "grow" }, token),
-        h("button", { onclick: () => setToken({ token: token.value.trim() }, "把 token 设置为输入框中的值？所有客户端都需要更新。") }, "设置"),
-        h("button", { onclick: () => setToken({}, "随机重置 token？所有客户端都需要更新。") }, "随机重置"))),
-    h("p", { class: "help" }, "token 需为 8–128 位，仅可包含字母、数字和 . _ ~ : -"),
-    h("div", { class: "actions" },
-      h("button", { class: "danger", onclick: remove }, "删除订阅"),
-      h("span", { class: "grow" }),
-      h("button", { onclick: closeDialog }, "关闭")));
+      h("div", { class: "field-row" }, h("div", { class: "grow" }, token),
+        h("button", { onclick: () => setToken({ token: token.value.trim() }, "把 token 改成输入框里的值？所有应用里的地址都要更新。") }, "保存"),
+        h("button", { onclick: () => setToken({}, "随机生成新 token？所有应用里的地址都要更新。") }, "随机生成"))),
+    h("p", { class: "help", style: "margin-top:-6px" }, "8–128 位，可用字母、数字和 . _ ~ : -"),
+    h("div", { class: "danger-zone" },
+      h("span", { class: "grow help", style: "margin:0" }, "删除订阅会同时删除它的全部转发目标。"),
+      h("button", { class: "danger", onclick: remove }, "删除订阅")),
+    h("div", { class: "actions" }, h("button", { onclick: closeDialog }, "完成")));
 }
 
 function emptyConfig(type) {
@@ -287,15 +409,14 @@ function editTarget(sub, t) {
       : h("select", { onchange: (e) => { d.type = e.target.value; d.config = emptyConfig(d.type); draw(); } },
           state.meta.outbound.map((o) => h("option", { value: o.type, selected: o.type === d.type }, o.label)));
     openDialog(
-      h("h3", {}, t ? "编辑目标" : "添加目标"),
+      h("h3", {}, t ? "编辑转发目标" : "添加转发目标"),
       h("div", { class: "grid2" },
         h("label", {}, h("span", {}, "类型"), typeSelect),
         // ntfy is identified by its topic, so it has no name field.
         m.named ? h("label", {}, h("span", {}, "名称"), h("input", { value: d.name, placeholder: "例如：家庭群", oninput: (e) => (d.name = e.target.value) })) : null,
         ...inputs),
-      h("label", { class: "inline" }, h("input", { type: "checkbox", checked: d.enabled, onchange: (e) => (d.enabled = e.target.checked) }), "启用"),
+      h("label", { class: "inline" }, h("input", { type: "checkbox", checked: d.enabled, onchange: (e) => (d.enabled = e.target.checked) }), "启用，收到通知时转发到这里"),
       h("div", { class: "actions" },
-        h("span", { class: "grow" }),
         h("button", { onclick: closeDialog }, "取消"),
         h("button", { class: "primary", onclick: save }, "保存")));
   }
