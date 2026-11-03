@@ -11,8 +11,6 @@ export interface TargetResult {
   ok: boolean;
   status?: number;
   error?: string;
-  /** Start of the target's response body, for the admin "test" button. */
-  response?: string;
 }
 
 export interface ForwardResult {
@@ -34,10 +32,9 @@ export async function sendToTarget(target: Target, msg: Message): Promise<Target
     const req = await buildRequest(target, msg);
     const res = await fetch(req.url, { ...req.init, signal: AbortSignal.timeout(SEND_TIMEOUT_MS) });
     const text = await res.text();
-    const response = text.slice(0, 500);
-    if (!res.ok) return { ...base, ok: false, status: res.status, error: `HTTP ${res.status}`, response };
+    if (!res.ok) return { ...base, ok: false, status: res.status, error: `HTTP ${res.status}` };
     OUTBOUND[target.type].check?.(res, text);
-    return { ...base, ok: true, status: res.status, response };
+    return { ...base, ok: true, status: res.status };
   } catch (e) {
     const error = e instanceof DOMException && e.name === "TimeoutError" ? "timeout" : errorMessage(e);
     return { ...base, ok: false, error };

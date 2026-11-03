@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { base64Utf8 } from "../crypto";
 import type { Level } from "../message";
-import { jsonRequest, type OutboundAdapter } from "./types";
+import { hostOf, jsonRequest, type OutboundAdapter } from "./types";
 
 const schema = z.object({
   server: z.url().default("https://ntfy.sh"),
@@ -21,6 +21,10 @@ export const ntfyOut: OutboundAdapter<NtfyConfig> = {
   label: "ntfy",
   schema,
   secretFields: ["auth_token", "auth_password"],
+  summary(c) {
+    const host = hostOf(c.server);
+    return host && host !== "ntfy.sh" ? `${c.topic} @ ${host}` : c.topic;
+  },
   build(msg, c) {
     const headers: Record<string, string> = {};
     if (c.auth_kind === "bearer" && c.auth_token) headers.authorization = `Bearer ${c.auth_token}`;

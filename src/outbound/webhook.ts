@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { composeText, type Message } from "../message";
-import type { OutboundAdapter } from "./types";
+import { hostOf, type OutboundAdapter } from "./types";
 
 const schema = z.object({
   url: z.string().min(1, "url 不能为空"),
@@ -52,6 +52,8 @@ export const webhookOut: OutboundAdapter<WebhookConfig> = {
   label: "通用 Webhook",
   schema,
   secretFields: ["url", "headers"],
+  // Only the host: the path or query may carry a key.
+  summary: (c) => [c.method, hostOf(c.url)].filter(Boolean).join(" "),
   build(msg, c) {
     const url = render(c.url, msg, encodeURIComponent);
     const headers = parseHeaderLines(c.headers);

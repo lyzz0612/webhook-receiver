@@ -29,7 +29,7 @@ export const defaultIn: InboundAdapter = {
   label: "自有格式",
   tokens: (v) => [v.query.get("token") ?? undefined, bearer(v)],
   parse: parseLenient,
-  respond: ({ result }) => jsonResponse({ ok: result.ok, results: result.results.map(({ response: _r, ...t }) => t) }),
+  respond: ({ result }) => jsonResponse({ ok: result.ok, results: result.results }),
   detect: () => Tier.Weak,
   urlTemplate: "{base}?token={token}",
 };

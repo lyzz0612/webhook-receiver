@@ -61,7 +61,7 @@
   "targets": [
     { "id": "t1", "name": "家庭群", "type": "feishu", "enabled": true,
       "config": { "webhook_url": "https://open.feishu.cn/...", "sign_secret": "..." } },
-    { "id": "t2", "name": "手机", "type": "ntfy", "enabled": true,
+    { "id": "t2", "name": "", "type": "ntfy", "enabled": true,
       "config": { "server": "https://ntfy.sh", "topic": "xxx", "auth_kind": "none" } }
   ],
   "created_at": "2026-11-02T00:00:00Z",
@@ -70,7 +70,8 @@
 ```
 
 - 目标跟着订阅走，没有独立的目标表
-- `id` 只在订阅内唯一，用于后台编辑和测试发送
+- 目标以 `id`（订阅内唯一，随机生成）标识；`name` 是可选的备注名，可以为空、可以重复
+- 后台列表显示类型和配置摘要，由各出站适配器的 `summary` 生成，不包含敏感值：ntfy 显示 topic（非 ntfy.sh 时加服务器），Gotify 显示服务器域名，Webhook 显示方法和域名，飞书、企业微信显示密钥末 4 位
 - 用 zod 判别联合（按 `type`）校验目标配置，前后端共用同一份 schema
 
 ### 4.2 KV 一致性带来的影响
@@ -276,15 +277,15 @@ interface OutboundAdapter<C> {
  [all · 自动识别 ▾]  https://w.dev/all/nas?token=T0k3n        [复制]
  ─────────────────────────────────────────────────────────────
  转发目标（2）                                          [+ 添加目标]
- 启用  家庭群  飞书机器人                    [测试] [编辑] [删除]
- 停用  手机    ntfy                         [测试] [编辑] [删除]
+ 启用  飞书机器人  家庭群  …1234                    [编辑] [删除]
+ 停用  ntfy  alerts                               [编辑] [删除]
 ```
 
 每个订阅一张卡片：
 
 - 格式下拉框列出全部 11 种入站类型，旁边显示所选格式的完整 URL 和复制按钮。每个订阅上次选的格式记在 localStorage
 - URL 由前端用 `location.origin` 加各类型的模板拼出，后端不需要额外接口
-- 转发目标直接列在卡片里，可以新增、单条编辑、单条删除、发送测试消息（返回目标服务器的原始响应）
+- 转发目标直接列在卡片里，每行显示类型、备注名（有的话）和配置摘要，可以新增、单条编辑、单条删除
 - 复制使用 `navigator.clipboard`（Workers 默认 HTTPS，本地 `wrangler dev` 用 localhost，均可用）
 
 “编辑订阅”弹窗只有三个操作：改名、设置或随机重置 token、删除订阅。
@@ -309,7 +310,6 @@ interface OutboundAdapter<C> {
 | POST | `/admin/api/subscriptions/:name/targets` | 新增目标 |
 | PUT | `/admin/api/subscriptions/:name/targets/:id` | 编辑单个目标 |
 | DELETE | `/admin/api/subscriptions/:name/targets/:id` | 删除单个目标 |
-| POST | `/admin/api/subscriptions/:name/targets/:id/test` | 给单个目标发测试消息 |
 | GET | `/admin/api/meta` | 入站类型和出站表单定义 |
 
 写操作检查 `Origin` 头，配合 `SameSite=Strict` cookie 防 CSRF。

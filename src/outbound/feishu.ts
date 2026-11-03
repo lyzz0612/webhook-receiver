@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { base64, hmacSha256 } from "../crypto";
 import type { Level } from "../message";
-import { jsonRequest, parseJsonSafe, type OutboundAdapter } from "./types";
+import { jsonRequest, parseJsonSafe, tail, type OutboundAdapter } from "./types";
 
 const schema = z.object({
   webhook_url: z.url(),
@@ -17,6 +17,7 @@ export const feishuOut: OutboundAdapter<FeishuConfig> = {
   label: "飞书机器人",
   schema,
   secretFields: ["webhook_url", "sign_secret"],
+  summary: (c) => tail(c.webhook_url.replace(/\/+$/, "")),
   async build(msg, c) {
     let payload: Record<string, unknown>;
     if (msg.markdown) {

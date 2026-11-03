@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { composeText, truncateBytes } from "../message";
-import { jsonRequest, parseJsonSafe, type OutboundAdapter } from "./types";
+import { jsonRequest, parseJsonSafe, tail, type OutboundAdapter } from "./types";
 
 const schema = z.object({
   /** Robot key, or the full webhook URL. */
@@ -17,6 +17,7 @@ export const wecomOut: OutboundAdapter<WecomConfig> = {
   label: "企业微信机器人",
   schema,
   secretFields: ["key"],
+  summary: (c) => tail(c.key.replace(/^.*[?&]key=/, "")),
   build(msg, c) {
     const url = /^https?:\/\//.test(c.key)
       ? c.key

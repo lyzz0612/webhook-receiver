@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Level } from "../message";
-import { joinUrl, jsonRequest, type OutboundAdapter } from "./types";
+import { hostOf, joinUrl, jsonRequest, type OutboundAdapter } from "./types";
 
 const schema = z.object({
   server: z.url(),
@@ -16,6 +16,7 @@ export const gotifyOut: OutboundAdapter<GotifyConfig> = {
   label: "Gotify",
   schema,
   secretFields: ["app_token"],
+  summary: (c) => hostOf(c.server),
   build(msg, c) {
     const extras: Record<string, unknown> = {};
     if (msg.markdown) extras["client::display"] = { contentType: "text/markdown" };

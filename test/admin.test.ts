@@ -131,17 +131,37 @@ describe("targets", () => {
     expect((await admin("/subscriptions/nas/targets", cookie, post(ntfyTarget))).status).toBe(400);
   });
 
-  it("tests a stored target and an unsaved form", async () => {
-    const sent = mockFetch(() => new Response("accepted", { status: 202 }));
+  it("name is optional; the list shows a non-secret summary per type", async () => {
+    await seed("nas", []);
+    const cookie = await login();
+    const add = (t: unknown) => body(admin("/subscriptions/nas/targets", cookie, post(t)));
+    // Blank fields as the form sends them: server falls back to https://ntfy.sh.
+    await add({ type: "ntfy", config: { server: "", topic: "alerts", auth_kind: "none", auth_token: "" } });
+    await add({ type: "ntfy", config: { server: "https://ntfy.example.com", topic: "ops" } });
+    await add({ type: "gotify", config: { server: "https://g.example.com", app_token: "app" } });
+    await add({ type: "wecom", config: { key: "secret-key-wxyz" } });
+    await add({ type: "feishu", config: { webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/abcd1234" } });
+    const sub = await add({ type: "webhook", config: { url: "https://hook.example.com/path?key=s3cret" } });
+
+    expect(sub.targets.map((t) => t.name)).toEqual(["", "", "", "", "", ""]);
+    expect(sub.targets.map((t) => (t as unknown as { summary: string }).summary)).toEqual([
+      "alerts",
+      "ops @ ntfy.example.com",
+      "g.example.com",
+      "…wxyz",
+      "…1234",
+      "POST hook.example.com",
+    ]);
+    // Summaries never leak secrets.
+    expect(JSON.stringify(sub)).not.toMatch(/secret-key|abcd1234|s3cret/);
+    // Distinct ids even with identical (empty) names.
+    expect(new Set(sub.targets.map((t) => t.id)).size).toBe(6);
+  });
+
+  it("no longer exposes the target test endpoint", async () => {
     await seed();
     const cookie = await login();
-    const r = await body<Record<string, unknown>>(admin("/subscriptions/nas/targets/t1/test", cookie, post()));
-    expect(r).toMatchObject({ ok: true, status: 202, response: "accepted" });
-
-    // Unsaved form with a blank secret-like URL falls back to the stored value.
-    const draft = { type: "webhook", name: "x", config: { url: "", method: "PUT", content_type: "application/json", headers: "", body_template: "" } };
-    await admin("/subscriptions/nas/targets/t1/test", cookie, post({ target: draft }));
-    expect(sent[1]).toMatchObject({ url: "https://hook.test/t1", method: "PUT" });
+    expect((await admin("/subscriptions/nas/targets/t1/test", cookie, post())).status).toBe(404);
   });
 });
 

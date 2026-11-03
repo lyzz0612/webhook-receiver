@@ -9,7 +9,6 @@ import {
   type AppEnv,
 } from "../auth";
 import { randomToken } from "../crypto";
-import { sendToTarget } from "../forward";
 import { errorMessage, HttpError, isObj, str } from "../http";
 import { ALL_URL_TEMPLATE, INBOUND, INBOUND_TYPES } from "../inbound";
 import { OUTBOUND, OUTBOUND_FIELDS } from "../outbound";
@@ -178,16 +177,4 @@ adminApi.delete("/subscriptions/:name/targets/:id", async (c) => {
   const existing = findTarget(sub, c.req.param("id"));
   sub.targets = sub.targets.filter((t) => t.id !== existing.id);
   return c.json(await save(c.env.SUBS, sub));
-});
-
-const TEST_MESSAGE = { title: "测试消息", body: "这是一条来自 webhook-receiver 的测试消息。" };
-
-/** Tests the stored target, or unsaved form contents sent as { target } (blank secrets fall back to the stored ones). */
-adminApi.post("/subscriptions/:name/targets/:id/test", async (c) => {
-  const sub = await load(c);
-  const stored = sub.targets.find((t) => t.id === c.req.param("id"));
-  const body = await readJson(c);
-  const target = body.target ? mergeTarget(body.target, stored) : stored;
-  if (!target) throw new HttpError(404, "目标不存在");
-  return c.json(await sendToTarget(target, TEST_MESSAGE));
 });

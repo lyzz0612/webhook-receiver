@@ -15,9 +15,24 @@ export interface OutboundAdapter<C> {
   build(msg: Message, config: C): Promise<OutboundRequest> | OutboundRequest;
   /** Throws when the target reports failure (non-2xx or a business error code). */
   check?(res: Response, text: string): void;
+  /** Short non-secret description shown in the admin list (e.g. the ntfy topic). */
+  summary(config: C): string;
 }
 
 export const SEND_TIMEOUT_MS = 10_000;
+
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
+}
+
+/** Last few characters of a secret, enough to tell targets apart without revealing it. */
+export function tail(secret: string, n = 4): string {
+  return secret.length > n ? `…${secret.slice(-n)}` : "";
+}
 
 export function jsonRequest(url: string, payload: unknown, headers: Record<string, string> = {}): OutboundRequest {
   return {

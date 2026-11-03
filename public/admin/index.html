@@ -107,6 +107,9 @@ async function copy(text) {
 
 const mask = (t) => (t ? t.slice(0, 3) + "•••••" : "");
 const outMeta = (type) => state.meta.outbound.find((o) => o.type === type);
+const typeLabel = (t) => outMeta(t.type)?.label ?? t.type;
+/** How a target is referred to in prompts: its name, else type + summary. */
+const targetTitle = (t) => t.name || [typeLabel(t), t.summary].filter(Boolean).join(" ");
 
 function subUrl(type, sub) {
   const tpl = state.meta.inbound.find((x) => x.type === type).urlTemplate;
@@ -188,9 +191,9 @@ function renderSubCard(sub) {
 
   const targets = sub.targets.map((t) => h("div", { class: "target-row" },
     h("span", { class: "badge" + (t.enabled ? "" : " off") }, t.enabled ? "启用" : "停用"),
-    h("b", {}, t.name),
-    h("span", { class: "muted grow" }, outMeta(t.type)?.label ?? t.type),
-    h("button", { onclick: () => testTarget(sub, t) }, "测试"),
+    h("b", {}, typeLabel(t)),
+    t.name ? h("span", {}, t.name) : null,
+    h("code", { class: "muted grow" }, t.summary || ""),
     h("button", { onclick: () => editTarget(sub, t) }, "编辑"),
     h("button", { class: "danger", onclick: () => deleteTarget(sub, t) }, "删除")));
 
@@ -261,7 +264,6 @@ function editTarget(sub, t) {
   const d = t
     ? { name: t.name, type: t.type, enabled: t.enabled, config: { ...t.config }, secrets_set: t.secrets_set || [], clear: [] }
     : { name: "", type: state.meta.outbound[0].type, enabled: true, config: emptyConfig(state.meta.outbound[0].type), secrets_set: [], clear: [] };
-  const result = h("pre", { style: "display:none" });
   const payload = () => ({ name: d.name, type: d.type, enabled: d.enabled, config: d.config, clear: d.clear });
 
   function draw() {
@@ -288,12 +290,10 @@ function editTarget(sub, t) {
       h("h3", {}, t ? "编辑目标" : "添加目标"),
       h("div", { class: "grid2" },
         h("label", {}, h("span", {}, "类型"), typeSelect),
-        h("label", {}, h("span", {}, "名称"), h("input", { value: d.name, placeholder: m.label, oninput: (e) => (d.name = e.target.value) })),
+        h("label", {}, h("span", {}, "备注名（可选）"), h("input", { value: d.name, placeholder: "留空则列表显示配置摘要", oninput: (e) => (d.name = e.target.value) })),
         ...inputs),
       h("label", { class: "inline" }, h("input", { type: "checkbox", checked: d.enabled, onchange: (e) => (d.enabled = e.target.checked) }), "启用"),
-      result,
       h("div", { class: "actions" },
-        t ? h("button", { onclick: () => testTarget(sub, t, payload(), result) }, "发送测试消息") : null,
         h("span", { class: "grow" }),
         h("button", { onclick: closeDialog }, "取消"),
         h("button", { class: "primary", onclick: save }, "保存")));
@@ -311,18 +311,8 @@ function editTarget(sub, t) {
   draw();
 }
 
-/** Sends a test message to a stored target, or to the unsaved form contents when `draft` is given. */
-function testTarget(sub, t, draft, out) {
-  run(async () => {
-    const r = await api("/subscriptions/" + sub.name + "/targets/" + t.id + "/test", { method: "POST", body: draft ? { target: draft } : {} });
-    const text = (r.ok ? "✅ 发送成功" : "❌ 发送失败：" + (r.error || "")) + (r.status ? "\nHTTP " + r.status : "") + (r.response ? "\n\n" + r.response : "");
-    if (out) { out.textContent = text; out.style.display = ""; }
-    else alert(text);
-  });
-}
-
 function deleteTarget(sub, t) {
-  if (!confirm("删除目标「" + t.name + "」？")) return;
+  if (!confirm("删除目标「" + targetTitle(t) + "」？")) return;
   run(async () => {
     updateSub(sub.name, await api("/subscriptions/" + sub.name + "/targets/" + t.id, { method: "DELETE" }));
     toast("已删除");

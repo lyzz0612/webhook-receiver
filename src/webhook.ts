@@ -57,8 +57,7 @@ export async function handleWebhook(req: Request, env: Env): Promise<Response> {
 
   if (!result.ok) {
     const error = result.results.length ? "all targets failed" : "no enabled targets";
-    const results = result.results.map(({ response: _r, ...t }) => t);
-    return jsonResponse({ ok: false, error, results }, 502, headers);
+    return jsonResponse({ ok: false, error, results: result.results }, 502, headers);
   }
 
   const res = r.adapter.respond({ view: r.view, message: r.message, result });
