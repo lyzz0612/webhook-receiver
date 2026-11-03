@@ -11,6 +11,19 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p test",
     "cf-typegen": "wrangler types"
   },
+  "cloudflare": {
+    "bindings": {
+      "ADMIN_PASSWORD": {
+        "description": "管理后台 `/admin/` 的登录密码，建议使用 `openssl rand -hex 16` 生成"
+      },
+      "SUBS": {
+        "description": "存储订阅、token 和转发目标的 KV 命名空间，**自动创建**"
+      },
+      "LOGIN_LIMITER": {
+        "description": "后台登录限流（每个 IP 每分钟 10 次），无需配置"
+      }
+    }
+  },
   "dependencies": {
     "hono": "^4.13.16",
     "zod": "^4.6.7"
